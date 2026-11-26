@@ -1,7 +1,413 @@
-test "the greeting loads"
-  expect tree has "root"
-  expect text "greeting" == "Hello from Hello Rust."
+test "the welcome speaks the language the person picks"
+  epoch "2026-11-27T03:00:00Z"
+  time-zone "Asia/Jakarta"
+  expect text "welcome-title" == "Your mind, clear."
+  tap "lang-id"
+  expect text "welcome-title" == "Pikiran jadi lega."
 
-test "the header's button likes it"
-  tap "like"
-  expect state liked == true
+test "answers are used: the quiz, the smart capture demo, the plan and the first tasks"
+  epoch "2026-11-27T03:00:00Z"
+  time-zone "Asia/Jakarta"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  type "name" "Rangga"
+  expect tree has "fact"
+  tap "ob-next"
+  tap "role-founder"
+  tap "ob-next"
+  tap "struggle-overwhelm"
+  tap "struggle-starting"
+  tap "ob-next"
+  tap "area-money"
+  tap "ob-next"
+  tap "peak-morning"
+  tap "ob-next"
+  tap "ob-next"
+  type "capacity" "4"
+  expect text "capacity-value" == "4"
+  tap "ob-next"
+  tap "focus-45"
+  tap "ob-next"
+  tap "capture-dump"
+  tap "ob-next"
+  tap "reminders-none"
+  tap "ob-next"
+  tap "celebrate-calm"
+  tap "ob-next"
+  tap "weekly-sunday"
+  tap "ob-next"
+  type "first" "Send the report today"
+  tap "ob-next"
+  tap "demo-example"
+  clock data
+  expect text "demo-sorted" == "Sorted on your iPhone"
+  expect tree has "demo-draft-2"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  clock +2000
+  expect tree has "plan-summary"
+  expect state pFocus == 45
+  tap "ob-next"
+  tap "icon-1"
+  expect state iconPick == "Midnight"
+  tap "ob-next"
+  expect text "ob-next-label" == "Open Lumen"
+  tap "ob-next"
+  clock data
+  clock +1000
+  clock data
+  expect state onboarded == true
+  expect text "greeting" == "Good morning, Rangga"
+  expect text "headline" == "1 task for today"
+  reload
+  clock data
+  expect state onboarded == true
+  expect text "greeting" == "Good morning, Rangga"
+
+test "skipping every question still lands on a working list"
+  epoch "2026-11-27T03:00:00Z"
+  time-zone "Asia/Jakarta"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  clock data
+  clock +1000
+  clock data
+  expect state onboarded == true
+  expect text "headline" == "2 tasks for today"
+
+test "a typed sentence becomes a dated task, completes, deletes and comes back"
+  epoch "2026-11-27T03:00:00Z"
+  time-zone "Asia/Jakarta"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  clock data
+  clock +1000
+  clock data
+  tap "add-task"
+  clock settle
+  type "capture-text" "Call mom tomorrow at 5pm !high"
+  clock data
+  expect text "draft-title-0" == "Call mom"
+  expect text "draft-label-0" == "Tomorrow · 5:00 PM"
+  tap "capture-save"
+  clock settle
+  clock data
+  tap "tab-upcoming"
+  clock data
+  expect text "title-t3" == "Call mom"
+  tap "tab-today"
+  tap "check-t1"
+  clock +500
+  clock data
+  expect text "headline" == "1 task for today"
+  tap "task-t2-delete"
+  clock data
+  expect text "headline" == "All clear"
+  tap "undo"
+  clock data
+  expect text "headline" == "1 task for today"
+
+test "a task is edited, gets steps and is found by search"
+  epoch "2026-11-27T03:00:00Z"
+  time-zone "Asia/Jakarta"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  clock data
+  clock +1000
+  clock data
+  tap "open-t1"
+  clock settle
+  clock data
+  type "detail-name" "Write the launch note"
+  type "detail-step" "Outline"
+  type "detail-step" key "Enter"
+  clock data
+  expect tree has "sub-s3"
+  tap "priority-3"
+  tap "detail-save"
+  clock settle
+  clock data
+  expect text "title-t1" == "Write the launch note"
+  tap "tab-search"
+  type "search" "outline"
+  clock data
+  expect text "search-summary" == "1 result"
+  type "search" "zzz"
+  clock data
+  expect tree has "blank"
+
+test "going back keeps edits and a cancelled draft"
+  epoch "2026-11-27T03:00:00Z"
+  time-zone "Asia/Jakarta"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  clock data
+  clock +1000
+  clock data
+  tap "open-t1"
+  clock settle
+  clock data
+  type "detail-name" "Renamed on the way out"
+  tap "detail-back"
+  clock settle
+  clock data
+  expect text "title-t1" == "Renamed on the way out"
+  tap "add-task"
+  clock settle
+  type "capture-text" "Half a thought"
+  tap "capture-cancel"
+  clock settle
+  tap "add-task"
+  clock settle
+  clock data
+  expect text "draft-title-0" == "Half a thought"
+
+test "a new list holds its tasks and deleting it keeps them"
+  epoch "2026-11-27T03:00:00Z"
+  time-zone "Asia/Jakarta"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  clock data
+  clock +1000
+  clock data
+  tap "tab-lists"
+  tap "new-list"
+  clock settle
+  type "newlist-name" "Trips"
+  tap "symbol-airplane"
+  tap "color-teal"
+  tap "newlist-save"
+  clock settle
+  clock data
+  expect tree has "list-l3"
+  tap "list-l3"
+  clock settle
+  clock data
+  expect text "list-summary" == "0 open · 0 done"
+  tap "list-add"
+  clock settle
+  type "capture-text" "Book flights"
+  clock data
+  tap "capture-save"
+  clock settle
+  clock data
+  expect text "list-summary" == "1 open · 0 done"
+  tap "list-options-button"
+  tap "delete-list"
+  clock settle
+  tap "delete-list-yes"
+  clock settle
+  clock data
+  expect tree missing "list-l3"
+
+test "a focus session counts down and is logged"
+  epoch "2026-11-27T03:00:00Z"
+  time-zone "Asia/Jakarta"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  clock data
+  clock +1000
+  clock data
+  tap "tab-insights"
+  tap "insights-focus"
+  clock settle
+  tap "minutes-2"
+  expect text "focus-left" == "2:00"
+  tap "focus-start"
+  clock +61000
+  expect text "focus-left" == "0:59"
+  tap "focus-pause"
+  clock +30000
+  expect text "focus-left" == "0:59"
+  tap "focus-pause"
+  tap "focus-close"
+  clock settle
+  reload
+  clock data
+  expect state focusPhase == "running"
+  tap "tab-today"
+  clock data
+  tap "focus-banner"
+  clock settle
+  clock +60000
+  clock data
+  expect state focusPhase == "done"
+  tap "focus-finish-close"
+  clock settle
+  tap "tab-insights"
+  clock data
+  expect text "focus-minutes" == "2"
+
+test "settings change the language, the look and erase everything"
+  epoch "2026-11-27T03:00:00Z"
+  time-zone "Asia/Jakarta"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-skip"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-next"
+  tap "ob-skip"
+  tap "ob-skip"
+  clock data
+  clock +1000
+  clock data
+  tap "open-settings"
+  clock settle
+  type "settings-language" "id"
+  expect text "settings-capacity-label" == "5 tugas sehari"
+  type "settings-language" "en"
+  tap "scheme-dark"
+  expect state schemeChoice == "dark"
+  tap "erase"
+  clock settle
+  tap "erase-confirm-yes"
+  clock settle
+  clock data
+  tap "settings-done"
+  clock settle
+  expect text "headline" == "A clear day"

@@ -1,0 +1,37 @@
+// The focus session on the Lock Screen and in the Dynamic Island (ActivityKit).
+
+use FocusState from "./ui/model.contract"
+
+component FocusActivity
+  props
+    title: string
+    list: string
+    startedAt: number
+    endsAt: number
+    minutes: number
+  view
+    view slot="lockScreen" data-privacy="public"
+      row gap=14 align-items="center" background-color="#17103a"
+        image "symbol:timer" aria-hidden=true font="-exact-title1" color="#9d8bff"
+        column flex=1 min-width=0 gap=4
+          text "Lumen Focus" font="-exact-caption1" color="#c3bdea"
+          text title font-weight=600 line-clamp=2 color="#ffffff"
+          progress start=startedAt end=endsAt aria-label="Focus progress" width="100%" accent-color="#9d8bff"
+        time datetime=endsAt format="countdown" font="-exact-title2" font-weight=700 font-variant-numeric="tabular-nums" color="#ffffff"
+    view slot="compactLeading" data-privacy="public"
+      image "symbol:timer" aria-label="Focus" color="#9d8bff"
+    view slot="compactTrailing" data-privacy="public"
+      time datetime=endsAt format="countdown" font-variant-numeric="tabular-nums" color="#9d8bff"
+    view slot="minimal" data-privacy="public"
+      image "symbol:timer" aria-label="Focus" color="#9d8bff"
+    view slot="expanded"
+      view slot="leading" data-privacy="public"
+        image "symbol:timer" aria-hidden=true font="-exact-title2" color="#9d8bff"
+      view slot="trailing" data-privacy="public"
+        time datetime=endsAt format="countdown" font="-exact-title2" font-weight=700 font-variant-numeric="tabular-nums"
+      view slot="center" data-privacy="public"
+        text "Focus" font="-exact-caption1" color="#c3bdea" line-clamp=1
+      view slot="bottom" data-privacy="public"
+        column gap=6
+          text title font-weight=600 line-clamp=2 color="#ffffff"
+          progress start=startedAt end=endsAt aria-label="Focus progress" width="100%" accent-color="#9d8bff"

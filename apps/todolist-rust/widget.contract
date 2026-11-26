@@ -1,0 +1,45 @@
+// Today on the Home Screen and Lock Screen. The data module writes the
+// timeline from the snapshot the app keeps in the shared store.
+
+use WidgetRow, WidgetProps from "./ui/model.contract"
+
+shape WidgetViewport
+  width: number
+  height: number
+
+component TodayWidget
+  props
+    day: string
+    headline: string
+    done: number
+    total: number
+    ratio: number
+    rows: WidgetRow[]
+    more: number
+    empty: string
+  inject
+    snapshot_viewport: WidgetViewport
+  view
+    column width="100%" height="100%" gap=6
+      if snapshot_viewport.height < 80
+        column gap=1
+          text headline font-weight=700 line-clamp=1
+          for r, i in rows.slice(0, 2) key=`${i}`
+            text r.title font="-exact-footnote" line-clamp=1
+      else
+        row justify-content="space-between" align-items="center"
+          column
+            text day font="-exact-caption1" font-weight=700 color="#7c5cff" text-transform="uppercase"
+            text headline font="-exact-headline" font-weight=800 line-clamp=1
+          if total > 0
+            text `${done}/${total}` font="-exact-footnote" font-weight=700 color="#7c5cff" font-variant-numeric="tabular-nums"
+        if rows.length == 0
+          text empty font="-exact-footnote" color="#8a86a8"
+        for r, i in rows.slice(0, snapshot_viewport.height < 110 ? 2 : 3) key=`${i}`
+          row gap=6 align-items="center"
+            image "symbol:circle" aria-hidden=true font="-exact-caption1" color="#7c5cff"
+            text r.title font="-exact-footnote" flex=1 min-width=0 line-clamp=1
+            if r.time != "" and snapshot_viewport.width > 200
+              text r.time font="-exact-caption1" color="#8a86a8"
+        if more > 0
+          text `+${more}` font="-exact-caption1" color="#8a86a8"

@@ -1,0 +1,194 @@
+// Settings: the onboarding's answers, kept editable, plus appearance, language,
+// the app icon, permissions and the sources behind every fact.
+
+use Profile from "./model.contract"
+use symbol, tint, pop from "./theme.contract"
+
+component SettingsScreen
+  props
+    route: string
+    profile: Profile
+    name: string
+    scheme: string
+    lang: string
+    chosenIcon: string
+    iconAvailable: bool
+    notifState: string
+    aiState: string
+    editName: action
+    choose: action
+    number: action
+    editWake: action
+    editWind: action
+    toggle: action
+    pickScheme: action
+    setLang: action
+    chooseIcon: action
+    allow: action
+    openSettings: action
+    replay: action
+    erase: action
+    open: action
+    goBack: action
+    review: action
+  view
+    column navigationKey=`${route}` navigationPresentation="modal" position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        text t("settings.title") role="heading" aria-level=2 flex=1
+        button id="settings-back" press=goBack buttonStyle="bordered-prominent" aria-label=t("common.done") testId="settings-done"
+          image "symbol:checkmark"
+      list id="settings-list" appearance="auto" listStyle="inset-grouped" flex=1 min-height=0 testId="settings"
+        section
+          header
+            text t("settings.profile")
+          row
+            image "symbol:person-fill" aria-hidden=true color="AccentColor"
+            input value=name input=editName placeholder=t("q.name.placeholder") aria-label=t("q.name.title") maxlength=24 flex=1 min-width=0 testId="settings-name"
+        section
+          header
+            text t("settings.rhythm")
+          row
+            image "symbol:sf/sunrise.fill" aria-hidden=true color="-exact-system-orange"
+            text t("q.day.wake") flex=1
+            input type="time" value=profile.wake change=editWake aria-label=t("q.day.wake") testId="settings-wake"
+          row
+            image "symbol:sf/moon.stars.fill" aria-hidden=true color="-exact-system-indigo"
+            text t("q.day.wind") flex=1
+            input type="time" value=profile.wind change=editWind aria-label=t("q.day.wind") testId="settings-wind"
+          row
+            image "symbol:sf/bolt.fill" aria-hidden=true color="-exact-system-yellow"
+            text t("settings.peak") flex=1
+            select value=profile.peak change=choose("peak") aria-label=t("settings.peak") testId="settings-peak"
+              option t("peak.early") value="early"
+              option t("peak.morning") value="morning"
+              option t("peak.midday") value="midday"
+              option t("peak.afternoon") value="afternoon"
+              option t("peak.evening") value="evening"
+              option t("peak.night") value="night"
+          row
+            image "symbol:sf/gauge.with.needle.fill" aria-hidden=true color="-exact-system-purple"
+            text t("settings.capacity", n=`${profile.capacity}`) flex=1 testId="settings-capacity-label"
+            input type="range" min=1 max=12 step=1 value=profile.capacity input=number("capacity") aria-label=t("q.capacity.title") width=150 testId="settings-capacity"
+          row
+            image "symbol:timer" aria-hidden=true color="-exact-system-red"
+            text t("q.focus.title.short") flex=1
+            select value=`${profile.focus}` change=choose("focusText") aria-label=t("q.focus.title.short") testId="settings-focus"
+              for m in [15, 25, 45, 60] key=`${m}`
+                option `${m} min` value=`${m}`
+        section
+          header
+            text t("settings.behaviour")
+          row
+            text t("settings.capture") flex=1
+            select value=profile.capture change=choose("capture") aria-label=t("settings.capture") testId="settings-capture"
+              option t("capture.type") value="type"
+              option t("capture.speak") value="speak"
+              option t("capture.dump") value="dump"
+          row
+            text t("settings.reminders") flex=1
+            select value=profile.reminders change=choose("reminders") aria-label=t("settings.reminders") testId="settings-reminders"
+              option t("reminders.gentle") value="gentle"
+              option t("reminders.persistent") value="persistent"
+              option t("reminders.none") value="none"
+          row
+            text t("settings.celebrate") flex=1
+            select value=profile.celebrate change=choose("celebrate") aria-label=t("settings.celebrate") testId="settings-celebrate"
+              option t("celebrate.confetti") value="confetti"
+              option t("celebrate.calm") value="calm"
+              option t("celebrate.haptic") value="haptic"
+          row
+            text t("settings.weekly") flex=1
+            select value=profile.weekly change=choose("weekly") aria-label=t("settings.weekly") testId="settings-weekly"
+              option t("weekly.friday") value="friday"
+              option t("weekly.sunday") value="sunday"
+              option t("weekly.monday") value="monday"
+          row
+            column flex=1 gap=8
+              text t("settings.struggles")
+              row flex-wrap="wrap" gap=8
+                for s in ["forgetting", "overwhelm", "procrastination", "scattered", "time", "starting"] key=s
+                  button press=toggle("struggles", s) role="checkbox" aria-checked=profile.struggles.includes(s) testId=`settings-struggle-${s}` appearance="none" padding="8px 14px" border-radius=999 background-color=(profile.struggles.includes(s) ? "AccentColor" : "-exact-tertiary-fill") transition="background-color 200ms ease" -exact-press-haptic="selection"
+                    text (s == "forgetting" ? t("struggle.forgetting.short") : s == "overwhelm" ? t("struggle.overwhelm.short") : s == "procrastination" ? t("struggle.procrastination.short") : s == "scattered" ? t("struggle.scattered.short") : s == "time" ? t("struggle.time.short") : t("struggle.starting.short")) font="-exact-footnote" font-weight=600 color=(profile.struggles.includes(s) ? "night.ink" : "-exact-label")
+        section
+          header
+            text t("settings.notifications")
+          row
+            image (notifState == "granted" ? "symbol:sf/bell.badge.fill" : "symbol:sf/bell.slash.fill") aria-hidden=true color=(notifState == "granted" ? "-exact-system-green" : "-exact-secondary-label") -exact-symbol-effect="replace"
+            text (notifState == "granted" ? t("settings.notif.on") : notifState == "denied" ? t("settings.notif.denied") : t("settings.notif.off")) flex=1 testId="notif-state"
+            if notifState == "prompt"
+              button press=allow buttonStyle="tinted" testId="notif-allow"
+                text t("settings.notif.allow")
+            else if notifState == "denied"
+              button press=openSettings buttonStyle="tinted" testId="notif-settings"
+                text t("settings.notif.open")
+        section
+          header
+            text t("settings.look")
+          row
+            row role="radiogroup" aria-label=t("settings.appearance") width="100%"
+              for s in ["system", "light", "dark"] key=s
+                button role="radio" aria-checked=(scheme == s) press=pickScheme(s) testId=`scheme-${s}` flex=1 min-width=0
+                  text (s == "system" ? t("settings.system") : s == "light" ? t("settings.light") : t("settings.dark")) font-size="min(-exact-footnote, 17px)"
+          row
+            image "symbol:sf/globe" aria-hidden=true color="-exact-system-blue"
+            text t("settings.language") flex=1
+            select value=lang change=setLang aria-label=t("settings.language") testId="settings-language"
+              option "English" value="en"
+              option "Bahasa Indonesia" value="id"
+          if iconAvailable
+            row
+              column flex=1 gap=10
+                text t("settings.icon")
+                row gap=14
+                  for n, i in ["", "Midnight", "Sunrise", "Mono"] key=n
+                    button press=chooseIcon(n) testId=`settings-icon-${i}` aria-label=(i == 0 ? t("icon.aurora") : i == 1 ? t("icon.midnight") : i == 2 ? t("icon.sunrise") : t("icon.mono")) aria-pressed=(chosenIcon == n) appearance="none" padding=3 border-radius=18 border-width=2 border-style="solid" border-color=(chosenIcon == n ? "AccentColor" : "transparent") -exact-press-haptic="impact-light"
+                      image (i == 0 ? "assets/icons/aurora.png" : i == 1 ? "assets/icons/midnight.png" : i == 2 ? "assets/icons/sunrise.png" : "assets/icons/mono.png") alt="" width=54 height=54 border-radius=13
+        section
+          header
+            text t("settings.apple")
+          row
+            image "symbol:sf/apple.intelligence" aria-hidden=true color="AccentColor"
+            text t("settings.ai") flex=1
+            text (aiState == "available" ? t("settings.ai.on") : t("settings.ai.off")) color="-exact-secondary-label" testId="ai-state"
+          row
+            image "symbol:sf/siri" aria-hidden=true color="-exact-system-purple"
+            column flex=1 gap=2
+              text t("settings.siri")
+              text t("out.siri.phrase") font="-exact-caption1" color="-exact-secondary-label"
+          row
+            image "symbol:sf/switch.2" aria-hidden=true color="-exact-system-teal"
+            column flex=1 gap=2
+              text t("settings.controls")
+              text t("settings.controls.body") font="-exact-caption1" color="-exact-secondary-label"
+          row
+            image "symbol:sf/square.grid.2x2.fill" aria-hidden=true color="-exact-system-indigo"
+            column flex=1 gap=2
+              text t("settings.widgets")
+              text t("settings.widgets.body") font="-exact-caption1" color="-exact-secondary-label"
+        section
+          header
+            text t("settings.sources")
+          for i in range(5) key=`${i}`
+            row press=open(i == 0 ? "https://pubmed.ncbi.nlm.nih.gov/21688924/" : i == 1 ? "https://www.ics.uci.edu/~gmark/chi08-mark.pdf" : i == 2 ? "https://bear.warrington.ufl.edu/brenner/mar7588/Papers/buehler-et-al-1994.pdf" : i == 3 ? "https://pubmed.ncbi.nlm.nih.gov/29058942/" : "https://pubmed.ncbi.nlm.nih.gov/26479070/") testId=`source-${i}`
+              text (i == 0 ? t("fact.loops.src") : i == 1 ? t("fact.pings.src") : i == 2 ? t("fact.plans.src") : i == 3 ? t("fact.day.src") : t("fact.weekly.src")) flex=1 font="-exact-footnote"
+              image "symbol:sf/arrow.up.right" aria-hidden=true color="-exact-tertiary-label"
+          footer
+            text t("settings.privacy")
+        section
+          row
+            button press=review testId="rate" appearance="none" display="flex" gap=12 align-items="center" width="100%" text-align="start"
+              image "symbol:star-fill" aria-hidden=true color="-exact-system-yellow"
+              text t("settings.rate") color="-exact-label"
+          row
+            button press=replay testId="replay" appearance="none" display="flex" gap=12 align-items="center" width="100%" text-align="start"
+              image "symbol:sparkles" aria-hidden=true color="AccentColor"
+              text t("settings.replay") color="-exact-label"
+          row
+            button commandfor="erase-all" command="show-modal" destructive=true testId="erase" width="100%"
+              text t("settings.erase")
+      dialog id="erase-all" role="alertdialog" aria-label=t("settings.erase.confirm")
+        text t("settings.erase.body")
+        button press=erase destructive=true commandfor="erase-all" command="close" testId="erase-confirm-yes"
+          text t("settings.erase")
+        button commandfor="erase-all" command="close"
+          text t("common.cancel")

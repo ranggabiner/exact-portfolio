@@ -16,19 +16,162 @@
     }
   },
   "$schema": ".exact/checkout/scripts/app.schema.json",
-  "name": "Todo List",
-  "short_name": "Todo List",
+  "name": "Lumen",
+  "short_name": "Lumen",
   "id": "com.binerlabs.todolist",
   "start_url": "/",
   "display": "standalone",
   "app": {
     "id": "com.binerlabs.todolist",
-    "name": "Todo List"
+    "name": "Lumen"
   },
   "rust": {
     "data": {
       "crate": "todolist-data",
       "type": "todolist_data::TodoList"
     }
-  }
+  },
+  "description": "A to-do list that listens, sorts and keeps you on time.",
+  "strings": {
+    "base": "en"
+  },
+  "modules": [
+    "lumen-aurora",
+    "lumen-hero",
+    "lumen-physics",
+    "lumen-confetti",
+    "lumen-ring"
+  ],
+  "icons": [
+    {
+      "src": "assets/icons/aurora.png",
+      "sizes": "1024x1024",
+      "purpose": "any maskable"
+    }
+  ],
+  "alternate_icons": [
+    {
+      "name": "Midnight",
+      "icons": [
+        {
+          "src": "assets/icons/midnight.png",
+          "sizes": "1024x1024",
+          "purpose": "any maskable"
+        }
+      ]
+    },
+    {
+      "name": "Sunrise",
+      "icons": [
+        {
+          "src": "assets/icons/sunrise.png",
+          "sizes": "1024x1024",
+          "purpose": "any maskable"
+        }
+      ]
+    },
+    {
+      "name": "Mono",
+      "icons": [
+        {
+          "src": "assets/icons/mono.png",
+          "sizes": "1024x1024",
+          "purpose": "any maskable"
+        }
+      ]
+    }
+  ],
+  "widgets": [
+    {
+      "kind": "today",
+      "title": "Today",
+      "description": "What is due today, and what comes first.",
+      "families": [
+        "systemSmall",
+        "systemMedium",
+        "accessoryRectangular"
+      ],
+      "component": "TodayWidget",
+      "props": "WidgetProps",
+      "refresh": "widgetTimeline",
+      "preview": {
+        "day": "Friday",
+        "headline": "3 to do",
+        "done": 1,
+        "total": 4,
+        "ratio": 0.25,
+        "rows": [
+          {
+            "title": "Call mom",
+            "time": "5:00 PM",
+            "done": false
+          },
+          {
+            "title": "Send the deck",
+            "time": "",
+            "done": false
+          },
+          {
+            "title": "Morning run",
+            "time": "",
+            "done": false
+          }
+        ],
+        "more": 0,
+        "empty": "Nothing due. Enjoy it."
+      }
+    }
+  ],
+  "live_activities": [
+    {
+      "kind": "focus",
+      "title": "Focus session",
+      "component": "FocusActivity",
+      "state": "FocusState",
+      "preview": {
+        "title": "Write the report",
+        "list": "Work",
+        "startedAt": 1787915700000,
+        "endsAt": 1787917200000,
+        "minutes": 25
+      }
+    }
+  ],
+  "controls": [
+    {
+      "kind": "capture",
+      "title": "New Task",
+      "description": "Open Lumen ready to add a task.",
+      "symbol": "plus.circle.fill",
+      "url": "/capture"
+    },
+    {
+      "kind": "focus",
+      "title": "Start Focus",
+      "description": "Focus on your next task.",
+      "symbol": "timer",
+      "url": "/focus"
+    }
+  ],
+  "intents": {
+    "tools": {
+      "addTask": {
+        "title": "Add Task",
+        "parameters": {
+          "title": {
+            "title": "Task"
+          }
+        }
+      },
+      "todaySummary": {
+        "title": "Today in Lumen"
+      },
+      "completeNext": {
+        "title": "Complete Next Task"
+      }
+    }
+  },
+  "data": [
+    "privacy"
+  ]
 }

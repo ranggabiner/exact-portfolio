@@ -1,0 +1,92 @@
+// Motion and colour shared by every screen. Colours are the platform's roles
+// except the onboarding's night palette (app.forma).
+
+fn tint(c: string): string = c == "red" ? "-exact-system-red" : c == "orange" ? "-exact-system-orange" : c == "green" ? "-exact-system-green" : c == "teal" ? "-exact-system-teal" : c == "indigo" ? "-exact-system-indigo" : c == "purple" ? "-exact-system-purple" : c == "pink" ? "-exact-system-pink" : "-exact-system-blue"
+
+fn priorityTint(p: number): string = p >= 3 ? "-exact-system-red" : p == 2 ? "-exact-system-orange" : p == 1 ? "-exact-system-blue" : "-exact-tertiary-label"
+
+fn symbol(name: string): string = `symbol:sf/${name}`
+
+fn pad2(n: number): string = n < 10 ? `0${n}` : `${n}`
+
+fn hourOf(v: string): number = match parseNumber(v.slice(0, 2)) { case some(h) => h, case none => 0 }
+
+// "07:00" as the language writes it: 7:00 AM, or 07.00.
+fn clockLabel(v: string, lang: string): string = lang == "id" ? v.replaceAll(":", ".") : `${hourOf(v) % 12 == 0 ? 12 : hourOf(v) % 12}:${v.slice(3, 5)} ${hourOf(v) < 12 ? "AM" : "PM"}`
+
+fn clockText(ms: number): string = `${floor(ceil(ms / 1000) / 60)}:${pad2(ceil(ms / 1000) % 60)}`
+
+keyframes rise
+  from opacity=0 translate="0px 22px"
+
+keyframes pop
+  from opacity=0 scale=0.82
+
+keyframes drop
+  from opacity=0 translate="0px -16px" scale=0.96
+
+keyframes fade
+  from opacity=0
+
+keyframes slideIn
+  from opacity=0 translate="56px 0px" scale=0.98
+
+keyframes slideBack
+  from opacity=0 translate="-56px 0px" scale=0.98
+
+keyframes leaveLeft
+  to opacity=0 translate="-48px 0px"
+
+keyframes leaveRight
+  to opacity=0 translate="48px 0px"
+
+keyframes leaveFade
+  to opacity=0 scale=0.94
+
+keyframes ripple
+  from opacity=0.55 scale=0.9
+  to opacity=0 scale=1.9
+
+keyframes breathe
+  50% opacity=0.55 scale=1.06
+
+keyframes float
+  50% translate="0px -8px"
+
+keyframes glow
+  50% opacity=0.45
+
+// A tappable card of the night palette: onboarding's choices.
+style NightCard
+  background-color = "night.fill"
+  border-radius = 20
+  border-width = 1
+  border-style = "solid"
+  border-color = "night.line"
+  transition = "scale -exact-spring(420, 26, 1), background-color 220ms ease, border-color 220ms ease"
+  :active
+    -exact-press-scale = 0.965
+
+style NightCardOn
+  background-color = "night.fill.on"
+  border-radius = 20
+  border-width = 1
+  border-style = "solid"
+  border-color = "night.line.on"
+  transition = "scale -exact-spring(420, 26, 1), background-color 220ms ease, border-color 220ms ease"
+  :active
+    -exact-press-scale = 0.965
+
+// A card on a grouped page.
+style Card
+  background-color = "-exact-secondary-grouped-background"
+  border-radius = 22
+  box-sizing = "border-box"
+
+style PressCard
+  background-color = "-exact-secondary-grouped-background"
+  border-radius = 22
+  box-sizing = "border-box"
+  transition = "scale -exact-spring(420, 26, 1)"
+  :active
+    -exact-press-scale = 0.965

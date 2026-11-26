@@ -1,0 +1,110 @@
+// The capture sheet: type, speak or pour it all out. The preview underneath is
+// parsed on the phone as you go; Apple's on-device model can sort it further.
+
+use Draft, ListInfo from "./model.contract"
+use symbol, tint, rise, pop, ripple, fade from "./theme.contract"
+
+component DraftPreview
+  props
+    draft: Draft
+    index: number
+  view
+    row gap=12 align-items="center" padding=14 border-radius=18 background-color="-exact-secondary-grouped-background" animation=`pop 360ms ${index * 60}ms both` testId=`draft-${index}`
+      column width=38 height=38 border-radius=12 align-items="center" justify-content="center" background-color=tint(draft.listColor) flex-shrink=0
+        image symbol(draft.listSymbol) aria-hidden=true color="night.ink" font-size="min(-exact-body, 20px)" -exact-symbol-effect="replace"
+      column flex=1 min-width=0 gap=4
+        text draft.title font="-exact-headline" testId=`draft-title-${index}`
+        row gap=6 flex-wrap="wrap" align-items="center"
+          text draft.listName font="-exact-caption1" color="-exact-secondary-label"
+          if draft.label != ""
+            row gap=4 align-items="center" padding="2px 8px" border-radius=999 background-color="-exact-tertiary-fill"
+              image "symbol:sf/clock" aria-hidden=true font-size="min(-exact-caption2, 16px)" color="AccentColor"
+              text draft.label font="-exact-caption1" color="AccentColor" font-weight=600 testId=`draft-label-${index}`
+      if draft.priority >= 3
+        image "symbol:sf/exclamationmark.3" aria-label=t("priority.high") color="-exact-system-red"
+
+component CaptureScreen
+  props
+    route: string
+    text: string
+    mode: string
+    drafts: Draft[]
+    listId: string
+    lists: ListInfo[]
+    listening: bool
+    starting: bool
+    heard: string
+    speechError: string
+    aiAvailable: bool
+    aiBusy: bool
+    aiUsed: bool
+    saving: bool
+    editText: action
+    pickMode: action
+    pickList: action
+    mic: action
+    stopMic: action
+    aiSort: action
+    add: action
+    cancel: action
+    example: action
+  action micTap
+    if listening
+      stopMic()
+    else
+      mic()
+  view
+    column navigationKey=`${route}` navigationPresentation="modal" position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        button id="capture-cancel" press=cancel aria-label=t("common.cancel") testId="capture-cancel"
+          image "symbol:close"
+        text t("capture.title") role="heading" aria-level=2 flex=1
+        button press=add disabled=(drafts.length == 0 or saving) buttonStyle="bordered-prominent" aria-label=t("capture.add") testId="capture-save"
+          image "symbol:checkmark"
+      scroll id="capture-scroll" flex=1 min-height=0 background-color="-exact-grouped-background" keyboardDismissMode="interactive"
+        column gap=14 padding=16
+          row role="radiogroup" aria-label=t("capture.mode")
+            for m in ["type", "speak", "dump"] key=m
+              button role="radio" aria-checked=(mode == m) press=pickMode(m) testId=`mode-${m}` flex=1 min-width=0
+                text (m == "type" ? t("capture.mode.type") : m == "speak" ? t("capture.mode.speak") : t("capture.mode.dump")) font-size="min(-exact-footnote, 17px)"
+          if mode == "speak"
+            column align-items="center" gap=10 padding="8px 0px" animation="pop 380ms both"
+              column width=120 height=120 align-items="center" justify-content="center" position="relative"
+                if listening
+                  view position="absolute" width=88 height=88 border-radius=44 background-color="AccentColor" animation="ripple 1400ms ease-out infinite" aria-hidden=true
+                  view position="absolute" width=88 height=88 border-radius=44 background-color="rose" animation="ripple 1400ms 500ms ease-out infinite" aria-hidden=true
+                button press=micTap testId="capture-mic" aria-label=(listening ? t("demo.stop") : t("demo.speak")) appearance="none" width=88 height=88 border-radius=44 background-image="linear-gradient(145deg, #8d6bff 0%, #6a45f0 55%, #ff6fa8 100%)" display="flex" align-items="center" justify-content="center" box-shadow="0 12px 32px rgba(124,92,255,0.4)" -exact-press-haptic="impact-medium"
+                  image (listening ? "symbol:stop-fill" : "symbol:sf/mic.fill") aria-hidden=true font-size=32 color="night.ink" -exact-symbol-effect="replace"
+              text (listening ? t("demo.listening") : starting ? t("demo.starting") : t("demo.tap")) role="status" font="-exact-subheadline" color="-exact-secondary-label" testId="capture-mic-status"
+              if listening and heard != ""
+                text heard font="-exact-title3" text-align="center"
+              if speechError != ""
+                text speechError font="-exact-footnote" color="-exact-system-orange" text-align="center" testId="capture-speech-error"
+          column gap=8 padding=14 border-radius=22 background-color="-exact-secondary-grouped-background"
+            textarea value=text input=editText placeholder=(mode == "dump" ? t("capture.placeholder.dump") : t("capture.placeholder")) aria-label=t("capture.title") rows=(mode == "dump" ? 6 : 3) maxlength=2000 autofocus=(mode != "speak") border="none" font-size="1.25rem" background-color="transparent" testId="capture-text"
+            row justify-content="space-between" align-items="center" gap=8 flex-wrap="wrap"
+              row gap=6 align-items="center" flex="1 1 10rem" min-width=0
+                image "symbol:sf/tray.full" aria-hidden=true color="-exact-secondary-label" font-size="min(-exact-footnote, 20px)"
+                select value=listId change=pickList aria-label=t("capture.list") testId="capture-list"
+                  for l in lists key=l.id
+                    option l.name value=l.id
+              if aiAvailable
+                button press=aiSort disabled=(aiBusy or text.trim() == "") buttonStyle="tinted" testId="capture-ai"
+                  image "symbol:sf/apple.intelligence"
+                  text (aiBusy ? t("demo.ai.busy") : t("capture.ai"))
+          if drafts.length > 0
+            column gap=10
+              row gap=6 align-items="center"
+                image (aiUsed ? "symbol:sf/apple.intelligence" : "symbol:sparkles") aria-hidden=true color="AccentColor" -exact-symbol-effect="variable-color"
+                text (aiUsed ? t("demo.sorted.ai") : t("capture.preview", n=`${drafts.length}`)) font="-exact-footnote" font-weight=700 color="-exact-secondary-label" testId="preview-count"
+              // exact-accept lower-key-position
+              for d, i in drafts key=`${aiUsed}-${i}-${d.title}`
+                DraftPreview(draft=d, index=i)
+          else
+            column gap=10 padding=16 border-radius=22 background-color="-exact-secondary-grouped-background"
+              row gap=8 align-items="center"
+                image "symbol:sf/wand.and.stars" aria-hidden=true color="AccentColor" -exact-symbol-effect="wiggle"
+                text t("capture.try") font="-exact-headline"
+              for s, i in ["capture.ex1", "capture.ex2", "capture.ex3"] key=s
+                button press=example(i == 0 ? t("capture.ex1") : i == 1 ? t("capture.ex2") : t("capture.ex3")) testId=`capture-ex-${i}` appearance="none" text-align="start" display="block" padding="8px 0px"
+                  text (i == 0 ? t("capture.ex1") : i == 1 ? t("capture.ex2") : t("capture.ex3")) font="-exact-subheadline" color="AccentColor"

@@ -1,0 +1,191 @@
+// One task, edited in place: schedule, list, priority, steps and the way into
+// a focus session.
+
+use Detail, TaskRow, SubRow, ListInfo, TaskEdit from "./model.contract"
+use symbol, tint, rise, pop from "./theme.contract"
+use Blank from "./parts.contract"
+
+component DetailScreen
+  props
+    route: string
+    detail: Detail
+    lists: ListInfo[]
+    today: string
+    saved: action
+    focusOn: action
+    remove: action
+    toggleDone: action
+    addStep: action
+    toggleStep: action
+    removeStep: action
+    calendar: action
+    flag: action
+    goBack: action
+  state title = detail.task.title
+  state notes = detail.task.notes
+  state listId = detail.task.listId
+  state due = detail.task.due
+  state time = detail.task.time
+  state priority = detail.task.priority
+  state repeatRule = detail.task.repeat
+  state reminder = detail.task.reminder
+  state estimate = detail.task.estimate
+  state step = ""
+  action editTitle(v: string)
+    title = v
+  action editNotes(v: string)
+    notes = v
+  action pickList(v: string)
+    listId = v
+  action setDated(on: bool)
+    due = on ? today : ""
+    time = on ? time : ""
+  action editDue(v: string)
+    due = v
+  action setTimed(on: bool)
+    time = on ? "09:00" : ""
+    reminder = on
+  action editTime(v: string)
+    time = v
+  action pickPriority(p: number)
+    priority = p
+  action pickRepeat(v: string)
+    repeatRule = v
+  action setReminder(on: bool)
+    reminder = on
+  action pickEstimate(v: string)
+    match parseNumber(v)
+      case some(n)
+        estimate = n
+      case none
+        estimate = 0
+  action editStep(v: string)
+    step = v
+  action submitStep
+    if step.trim() != ""
+      addStep(step)
+      step = ""
+  derive edit = TaskEdit(id=detail.task.id, title=title, notes=notes, listId=listId, due=due, time=time, priority=priority, repeat=repeatRule, reminder=reminder, estimate=estimate)
+  derive changed = title != detail.task.title or notes != detail.task.notes or listId != detail.task.listId or due != detail.task.due or time != detail.task.time or priority != detail.task.priority or repeatRule != detail.task.repeat or reminder != detail.task.reminder or estimate != detail.task.estimate
+  action save
+    saved(edit)
+  // Back keeps what was typed, as Reminders does; an empty name changes nothing.
+  action leave
+    if changed and title.trim() != ""
+      saved(edit)
+    else
+      goBack()
+  view
+    column navigationKey=`${route}`  position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        button id="detail-back" press=leave aria-label=t("common.back") testId="detail-back"
+          image "symbol:back"
+        text t("detail.title") role="heading" aria-level=2 flex=1
+        button press=flag aria-label=t("menu.flag") testId="detail-flag"
+          image (detail.task.flagged ? "symbol:sf/flag.fill" : "symbol:sf/flag")
+        button press=save buttonStyle="bordered-prominent" disabled=(title.trim() == "") aria-label=t("common.save") testId="detail-save"
+          image "symbol:checkmark"
+      list id="detail-list" appearance="auto" listStyle="inset-grouped" flex=1 min-height=0 testId="detail"
+        section
+          row align-items="center" gap=12
+            button press=toggleDone appearance="none" testId="detail-check" role="checkbox" aria-checked=detail.task.done aria-label=t("task.complete", title=detail.task.title) width=30 height=30 display="flex" align-items="center" justify-content="center" -exact-press-haptic="impact-light"
+              image (detail.task.done ? "symbol:select-fill" : "symbol:circle") aria-hidden=true font-size=26 color=(detail.task.done ? "-exact-system-green" : "AccentColor") -exact-symbol-effect="replace"
+            input value=title input=editTitle submit=save aria-label=t("detail.name") placeholder=t("detail.name") maxlength=140 font-size="1.188rem" font-weight=600 flex=1 min-width=0 testId="detail-name"
+          row
+            textarea value=notes input=editNotes placeholder=t("detail.notes") aria-label=t("detail.notes") rows=3 maxlength=4000 border="none" background-color="transparent" width="100%" testId="detail-notes"
+        section
+          row
+            image "symbol:calendar" aria-hidden=true color="-exact-system-red"
+            text t("detail.date") flex=1
+            input type="checkbox" switch checked=(due != "") change=setDated aria-label=t("detail.date") testId="detail-dated"
+          if due != ""
+            row
+              text t("detail.day") flex=1
+              input type="date" value=due change=editDue aria-label=t("detail.day") testId="detail-due"
+            row
+              image "symbol:sf/clock.fill" aria-hidden=true color="-exact-system-blue"
+              text t("detail.time") flex=1
+              input type="checkbox" switch checked=(time != "") change=setTimed aria-label=t("detail.time") testId="detail-timed"
+            if time != ""
+              row
+                text t("detail.at") flex=1
+                input type="time" value=time change=editTime aria-label=t("detail.at") testId="detail-time"
+              row
+                image "symbol:notifications-fill" aria-hidden=true color="-exact-system-orange"
+                text t("detail.reminder") flex=1
+                input type="checkbox" switch checked=reminder change=setReminder aria-label=t("detail.reminder") testId="detail-reminder"
+            row
+              image "symbol:repeat" aria-hidden=true color="-exact-system-purple"
+              text t("detail.repeat") flex=1
+              select value=repeatRule change=pickRepeat aria-label=t("detail.repeat") testId="detail-repeat"
+                option t("repeat.none") value="none"
+                option t("repeat.daily") value="daily"
+                option t("repeat.weekdays") value="weekdays"
+                option t("repeat.weekly") value="weekly"
+                option t("repeat.monthly") value="monthly"
+        section
+          row
+            image "symbol:sf/tray.full.fill" aria-hidden=true color="-exact-system-indigo"
+            text t("detail.list") flex=1
+            select value=listId change=pickList aria-label=t("detail.list") testId="detail-listpick"
+              for l in lists key=l.id
+                option l.name value=l.id
+          row
+            image "symbol:sf/exclamationmark.3" aria-hidden=true color="-exact-system-red"
+            text t("detail.priority") flex=1
+            row role="radiogroup" aria-label=t("detail.priority")
+              for p in [0, 1, 2, 3] key=`${p}`
+                button role="radio" aria-checked=(priority == p) press=pickPriority(p) testId=`priority-${p}` aria-label=(p == 0 ? t("priority.none") : p == 1 ? t("priority.low") : p == 2 ? t("priority.medium") : t("priority.high"))
+                  text (p == 0 ? "—" : p == 1 ? "!" : p == 2 ? "!!" : "!!!") font-size="min(-exact-footnote, 17px)"
+          row
+            image "symbol:sf/hourglass" aria-hidden=true color="-exact-system-teal"
+            text t("detail.estimate") flex=1
+            select value=`${estimate}` change=pickEstimate aria-label=t("detail.estimate") testId="detail-estimate"
+              option t("detail.estimate.none") value="0"
+              for m in [5, 15, 25, 30, 45, 60, 90, 120] key=`${m}`
+                option `${m} min` value=`${m}`
+              if estimate > 0 and estimate != 5 and estimate != 15 and estimate != 25 and estimate != 30 and estimate != 45 and estimate != 60 and estimate != 90 and estimate != 120
+                option `${estimate} min` value=`${estimate}`
+        section
+          header
+            text t("detail.steps")
+          for s in detail.subtasks key=s.id
+            row delete=removeStep(s.id) testId=`sub-${s.id}` align-items="center" gap=12
+              button press=toggleStep(s.id) appearance="none" role="checkbox" aria-checked=s.done aria-label=s.title testId=`sub-check-${s.id}` width=28 height=28 display="flex" align-items="center" justify-content="center" -exact-press-haptic="selection"
+                image (s.done ? "symbol:select-fill" : "symbol:circle") aria-hidden=true font-size=22 color=(s.done ? "-exact-system-green" : "-exact-tertiary-label") -exact-symbol-effect="replace"
+              text s.title flex=1 min-width=0 color=(s.done ? "-exact-secondary-label" : "-exact-label") text-decoration=(s.done ? "line-through" : "none")
+          row align-items="center" gap=12
+            image "symbol:sf/plus.circle.fill" aria-hidden=true color="AccentColor" font-size="min(-exact-title3, 28px)"
+            input value=step input=editStep submit=submitStep placeholder=t("detail.addstep") aria-label=t("detail.addstep") maxlength=140 flex=1 min-width=0 enterkeyhint="done" testId="detail-step"
+        section
+          row
+            button press=focusOn testId="detail-focus" appearance="none" display="flex" align-items="center" gap=12 width="100%" text-align="start" -exact-press-haptic="impact-medium"
+              image "symbol:timer" aria-hidden=true color="AccentColor" -exact-symbol-effect="breathe"
+              text t("detail.focus") color="AccentColor" flex=1
+          row
+            button press=calendar testId="detail-calendar" appearance="none" display="flex" align-items="center" gap=12 width="100%" text-align="start" disabled=(due == "")
+              image "symbol:sf/calendar.badge.plus" aria-hidden=true color=(due == "" ? "-exact-tertiary-label" : "AccentColor")
+              text t("detail.calendar") color=(due == "" ? "-exact-tertiary-label" : "AccentColor") flex=1
+          footer
+            text detail.created testId="detail-created"
+        section
+          row
+            button commandfor="delete-task" command="show-modal" destructive=true testId="detail-delete" width="100%"
+              text t("menu.delete")
+      dialog id="delete-task" role="alertdialog" aria-label=t("detail.delete.confirm")
+        button press=remove destructive=true commandfor="delete-task" command="close" testId="detail-delete-yes"
+          text t("menu.delete")
+        button commandfor="delete-task" command="close"
+          text t("common.cancel")
+
+component MissingTask
+  props
+    route: string
+    goBack: action
+  view
+    column navigationKey=`${route}`  position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        button id="missing-back" press=goBack aria-label=t("common.back")
+          image "symbol:back"
+        text t("detail.title") role="heading" aria-level=2 flex=1
+      Blank(icon="questionmark.folder", title=t("detail.missing.title"), body=t("detail.missing.body"), cta=t("common.back"), press=goBack)

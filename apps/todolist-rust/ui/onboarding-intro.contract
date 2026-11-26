@@ -1,0 +1,76 @@
+// Steps 0–3: the welcome and the three problems, each carried by a sourced fact.
+
+use symbol, rise, pop, drop, fade, float, slideBack from "./theme.contract"
+use Headline, Fact from "./onboarding-parts.contract"
+
+component ObWelcome
+  props
+    lang: string
+    setLang: action
+  view
+    column gap=18
+      row justify-content="flex-end" align-items="center" gap=8 min-height=44
+        image "symbol:sf/globe" aria-hidden=true color="night.muted" font-size="min(-exact-subheadline, 22px)"
+        row role="radiogroup" aria-label=t("ob.language") testId="lang"
+          button role="radio" aria-checked=(lang != "id") press=setLang("en") testId="lang-en" flex=1 min-width=0
+            text "English" font-size="min(-exact-footnote, 17px)"
+          button role="radio" aria-checked=(lang == "id") press=setLang("id") testId="lang-id" flex=1 min-width=0
+            text "Indonesia" font-size="min(-exact-footnote, 17px)"
+      lumen-hero height=300 width="100%" labels=t("ob.hero.cards") aria-hidden=true
+      column gap=12 align-items="center" text-align="center"
+        text "Lumen" font-size="min(-exact-headline, 24px)" font-weight=700 letter-spacing=3 text-transform="uppercase" color="iris" animation="rise 600ms 100ms both"
+        text t("ob.welcome.title") role="heading" aria-level=1 font-size=40 line-height=1.15 font-family="ui-serif" font-weight=700 color="night.ink" animation="rise 700ms 200ms both" testId="welcome-title"
+        text t("ob.welcome.detail") font="-exact-body" color="night.muted" animation="rise 700ms 320ms both" max-width="20rem"
+      row justify-content="center" gap=18 flex-wrap="wrap" margin-top=4 animation="fade 800ms 600ms both"
+        for i in range(3) key=`${i}`
+          column align-items="center" gap=6 animation=`pop 500ms ${650 + i * 90}ms both`
+            image (i == 0 ? "symbol:waveform" : i == 1 ? "symbol:sparkles" : "symbol:sf/lock.fill") aria-hidden=true font-size="min(-exact-title3, 28px)" color="night.ink" -exact-symbol-effect=(i == 2 ? "none" : "variable-color")
+            text (i == 0 ? t("ob.welcome.say") : i == 1 ? t("ob.welcome.sort") : t("ob.welcome.private")) font="-exact-caption1" color="night.muted"
+
+component ObLoops
+  props
+    open: action
+  view
+    column gap=18
+      Headline(title=t("ob.loops.title"), detail=t("ob.loops.detail"))
+      lumen-physics height=280 width="100%" items=t("ob.loops.items") calm="0" aria-label=t("ob.loops.a11y")
+      row gap=8 justify-content="center" align-items="center"
+        image "symbol:sf/iphone.gen3.radiowaves.left.and.right" aria-hidden=true color="night.faint" -exact-symbol-effect="wiggle"
+        text t("ob.loops.hint") font="-exact-footnote" color="night.faint"
+      Fact(body=t("fact.loops"), source=t("fact.loops.src"), url="https://pubmed.ncbi.nlm.nih.gov/21688924/", open=open)
+
+component ObPings
+  props
+    open: action
+  view
+    column gap=18
+      Headline(title=t("ob.pings.title"), detail=t("ob.pings.detail"))
+      column gap=10 aria-hidden=true
+        for n, i in ["envelope.fill", "message.fill", "calendar.badge.exclamationmark", "bell.badge.fill"] key=n
+          row gap=12 padding=14 border-radius=18 backgroundMaterial="ultra-thin-dark" align-items="center" margin-left=(i % 2 == 0 ? 0 : 28) margin-right=(i % 2 == 0 ? 28 : 0) animation=`drop 520ms ${300 + i * 320}ms both`
+            column width=36 height=36 border-radius=10 align-items="center" justify-content="center" background-color=(i == 0 ? "iris.deep" : i == 1 ? "iris" : i == 2 ? "rose" : "amber")
+              image symbol(n) color="night.ink" font-size="min(-exact-body, 19px)" -exact-symbol-effect="wiggle" symbolEffectValue=`${i}`
+            column flex=1 gap=4
+              text (i == 0 ? t("ob.pings.n1") : i == 1 ? t("ob.pings.n2") : i == 2 ? t("ob.pings.n3") : t("ob.pings.n4")) font="-exact-subheadline" font-weight=600 color="night.ink"
+              text t("ob.pings.now") font="-exact-caption2" color="night.faint"
+      Fact(body=t("fact.pings"), source=t("fact.pings.src"), url="https://www.ics.uci.edu/~gmark/chi08-mark.pdf", open=open)
+
+component ObPlans
+  props
+    open: action
+  view
+    column gap=18
+      Headline(title=t("ob.plans.title"), detail=t("ob.plans.detail"))
+      column gap=18 padding=18 border-radius=24 backgroundMaterial="ultra-thin-dark" animation="rise 520ms 200ms both"
+        column gap=8
+          row justify-content="space-between"
+            text t("ob.plans.expected") font="-exact-subheadline" color="night.muted"
+            text t("ob.plans.expected.days") font="-exact-title3" font-weight=700 color="mint" font-variant-numeric="tabular-nums"
+          view height=18 border-radius=9 width="61%" background-image="linear-gradient(90deg, #37bfa4, #5ee6c4)" animation="slideBack 900ms 420ms both"
+        column gap=8
+          row justify-content="space-between"
+            text t("ob.plans.actual") font="-exact-subheadline" color="night.muted"
+            text t("ob.plans.actual.days") font="-exact-title3" font-weight=700 color="rose" font-variant-numeric="tabular-nums"
+          view height=18 border-radius=9 width="100%" background-image="linear-gradient(90deg, #d94f86, #ff6fa8)" animation="slideBack 1300ms 760ms both"
+        text t("ob.plans.caption") font="-exact-footnote" color="night.faint"
+      Fact(body=t("fact.plans"), source=t("fact.plans.src"), url="https://bear.warrington.ufl.edu/brenner/mar7588/Papers/buehler-et-al-1994.pdf", open=open)

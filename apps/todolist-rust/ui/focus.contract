@@ -1,0 +1,77 @@
+// A focus session: one task, a ring that empties, and the same countdown on the
+// Lock Screen and in the Dynamic Island.
+
+use symbol, rise, pop, breathe, ripple, fade, clockText, NightCard, NightCardOn from "./theme.contract"
+
+component FocusScreen
+  props
+    route: string
+    title: string
+    phase: string
+    minutes: number
+    leftMs: number
+    totalMs: number
+    live: bool
+    pickMinutes: action
+    start: action
+    pauseSession: action
+    resumeSession: action
+    extend: action
+    finish: action
+    close: action
+    celebrate: string
+    burst: number
+  action pauseTap
+    if phase == "paused"
+      resumeSession()
+    else
+      pauseSession()
+  view
+    column navigationKey=`${route}` navigationPresentation="fullscreen" navigationBar="none" -exact-safe-area="none" position="absolute" inset=0 color-scheme="dark" background-color="night" status-bar-style="light-content" overflow="hidden" testId="focus"
+      lumen-aurora position="absolute" top=0 left=0 width="100%" height="100%" palette=(phase == "done" ? "celebrate" : phase == "running" ? "focus" : "calm") aria-hidden=true
+      column position="relative" flex=1 min-height=0 height="100%" box-sizing="border-box" padding="calc(var(--exact-safe-area-inset-top) + 4px) 20px calc(var(--exact-safe-area-inset-bottom) + 12px)"
+        row justify-content="space-between" align-items="center" height=44
+          button id="focus-close" press=close testId="focus-close" aria-label=t("common.close") appearance="none" width=40 height=40 border-radius=20 backgroundMaterial="ultra-thin-dark" display="flex" align-items="center" justify-content="center"
+            image "symbol:close" aria-hidden=true color="night.ink" font-size="min(-exact-body, 20px)"
+          text t("focus.title") font="-exact-footnote" font-weight=700 color="night.muted" text-transform="uppercase" letter-spacing=2
+          view width=40 aria-hidden=true
+        column flex=1 min-height=0 align-items="center" justify-content="center" gap=22
+          text title font="-exact-title2" font-weight=700 font-family="ui-serif" color="night.ink" text-align="center" line-clamp=3 testId="focus-task" animation="rise 520ms both"
+          column width="17.5rem" height="17.5rem" max-width="100%" position="relative" align-items="center" justify-content="center"
+            if phase == "running"
+              view position="absolute" width=230 height=230 border-radius=115 background-color="night.halo" animation="breathe 5.5s ease-in-out infinite" aria-hidden=true
+            lumen-ring position="absolute" width="100%" height="100%" progress=`${phase == "done" ? 1 : totalMs == 0 ? 0 : leftMs / totalMs}` figure="" suffix="" thick="1" aria-hidden=true
+            column align-items="center" gap=4
+              if phase == "done"
+                image "symbol:sf/checkmark.seal.fill" aria-hidden=true font-size=64 color="mint" -exact-symbol-effect="bounce" symbolEffectValue="done" animation="pop 520ms both"
+                text t("focus.done") font="-exact-title3" font-weight=700 color="night.ink"
+              else
+                text clockText(leftMs) font-size=66 line-height=1.18 font-weight=700 font-family="ui-rounded" font-variant-numeric="tabular-nums" color="night.ink" testId="focus-left" role="timer" aria-label=t("focus.left", time=clockText(leftMs))
+                text (phase == "paused" ? t("focus.paused") : phase == "running" ? t("focus.breathe") : t("focus.ready")) font="-exact-subheadline" color="night.muted"
+          if phase == "idle"
+            row gap=8 flex-wrap="wrap" justify-content="center" animation="rise 480ms 120ms both"
+              for m, i in [2, 15, 25, 45, 60] key=`${m}`
+                button press=pickMinutes(m) testId=`minutes-${m}` aria-pressed=(minutes == m) appearance="none" class=(minutes == m ? NightCardOn : NightCard) padding="10px 14px" -exact-press-haptic="selection"
+                  text `${m}` font="-exact-headline" color="night.ink" font-variant-numeric="tabular-nums"
+          if live and phase != "idle" and phase != "done"
+            row gap=8 align-items="center" padding="8px 14px" border-radius=999 backgroundMaterial="ultra-thin-dark" testId="focus-live" animation="pop 420ms both"
+              image "symbol:sf/livephoto" aria-hidden=true color="mint" -exact-symbol-effect="variable-color"
+              text t("focus.live") font="-exact-footnote" color="night.ink"
+        column gap=10
+          if phase == "idle"
+            button press=start testId="focus-start" appearance="none" height=58 border-radius=29 background-image="linear-gradient(95deg, #5a3adf 0%, #7142e2 55%, #b93a76 100%)" display="flex" align-items="center" justify-content="center" gap=8 box-shadow="0 14px 34px rgba(124,92,255,0.45)" -exact-press-haptic="impact-heavy"
+              image "symbol:play-fill" aria-hidden=true color="night.ink"
+              text t("focus.start", n=`${minutes}`) font="-exact-headline" color="night.ink"
+          else if phase == "done"
+            button press=close testId="focus-finish-close" appearance="none" height=58 border-radius=29 background-image="linear-gradient(95deg, #2fbf9f, #5ee6c4)" display="flex" align-items="center" justify-content="center" -exact-press-haptic="impact-medium"
+              text t("common.done") font="-exact-headline" color="night"
+          else
+            row gap=12 justify-content="center" align-items="center"
+              button press=extend testId="focus-extend" aria-label=t("focus.extend") appearance="none" width=64 height=64 border-radius=32 backgroundMaterial="ultra-thin-dark" display="flex" align-items="center" justify-content="center" -exact-press-haptic="impact-light"
+                image "symbol:sf/goforward.plus" aria-hidden=true font-size="min(-exact-title2, 30px)" color="night.ink"
+              button press=pauseTap testId="focus-pause" aria-label=(phase == "paused" ? t("focus.resume") : t("focus.pause")) appearance="none" width=84 height=84 border-radius=42 background-image="linear-gradient(145deg, #8d6bff, #ff6fa8)" display="flex" align-items="center" justify-content="center" box-shadow="0 14px 34px rgba(124,92,255,0.5)" -exact-press-haptic="impact-medium"
+                image (phase == "paused" ? "symbol:play-fill" : "symbol:pause-fill") aria-hidden=true font-size=30 color="night.ink" -exact-symbol-effect="replace"
+              button press=finish testId="focus-finish" aria-label=t("focus.finish") appearance="none" width=64 height=64 border-radius=32 backgroundMaterial="ultra-thin-dark" display="flex" align-items="center" justify-content="center" -exact-press-haptic="impact-medium"
+                image "symbol:checkmark" aria-hidden=true font-size="min(-exact-title2, 30px)" color="night.ink"
+      if burst > 0 and phase == "done"
+        lumen-confetti position="absolute" top=0 left=0 width="100%" height="100%" burst=`${burst}` kind=celebrate aria-hidden=true pointer-events="none"

@@ -1,0 +1,166 @@
+// Steps 4–16: thirteen questions. Every answer is read by a feature, and each one
+// shows a sourced fact once answered.
+
+use Profile from "./model.contract"
+use symbol, rise, pop, drop, fade, NightCard, NightCardOn from "./theme.contract"
+use Headline, Option, Tile, Fact, Why from "./onboarding-parts.contract"
+
+component ObAbout
+  props
+    step: number
+    profile: Profile
+    answered: bool
+    name: string
+    editName: action
+    choose: action
+    toggle: action
+    next: action
+    open: action
+  view
+    column gap=18
+      if step == 4
+        Headline(title=t("q.name.title"), detail=t("q.name.detail"))
+        row gap=10 padding=16 border-radius=20 backgroundMaterial="ultra-thin-dark" align-items="center" animation="rise 480ms 200ms both"
+          image "symbol:person-fill" aria-hidden=true font-size="min(-exact-title2, 30px)" color="night.muted"
+          input value=name input=editName submit=next placeholder=t("q.name.placeholder") aria-label=t("q.name.title") autocomplete="given-name" autocapitalize="words" enterkeyhint="next" maxlength=24 color="night.ink" font-size="1.25rem" border="none" background-color="transparent" flex=1 min-width=0 testId="name"
+        Why(body=t("q.name.why"))
+        if name.trim() != ""
+          Fact(body=t("fact.name"), source=t("fact.name.src"), url="https://pubmed.ncbi.nlm.nih.gov/27542527/", open=open)
+      else if step == 5
+        Headline(title=t("q.role.title"), detail="")
+        column gap=10
+          for r, i in ["student", "professional", "founder", "creator", "caregiver", "other"] key=r
+            Option(id=`role-${r}`, icon=(r == "student" ? "graduationcap.fill" : r == "professional" ? "briefcase.fill" : r == "founder" ? "paperplane.fill" : r == "creator" ? "paintbrush.pointed.fill" : r == "caregiver" ? "heart.circle.fill" : "sparkles"), title=(r == "student" ? t("role.student") : r == "professional" ? t("role.professional") : r == "founder" ? t("role.founder") : r == "creator" ? t("role.creator") : r == "caregiver" ? t("role.caregiver") : t("role.other")), detail="", on=(profile.role == r), index=i, pick=choose("role", r))
+        Why(body=t("q.role.why"))
+        if answered
+          Fact(body=t("fact.role"), source=t("fact.role.src"), url="https://pubmed.ncbi.nlm.nih.gov/12639695/", open=open)
+      else if step == 6
+        Headline(title=t("q.struggle.title"), detail=t("q.multi"))
+        column gap=10
+          for r, i in ["forgetting", "overwhelm", "procrastination", "scattered", "time", "starting"] key=r
+            Option(id=`struggle-${r}`, icon=(r == "forgetting" ? "brain" : r == "overwhelm" ? "square.3.layers.3d" : r == "procrastination" ? "hourglass" : r == "scattered" ? "square.on.square.dashed" : r == "time" ? "clock.fill" : "flag.fill"), title=(r == "forgetting" ? t("struggle.forgetting") : r == "overwhelm" ? t("struggle.overwhelm") : r == "procrastination" ? t("struggle.procrastination") : r == "scattered" ? t("struggle.scattered") : r == "time" ? t("struggle.time") : t("struggle.starting")), detail="", on=profile.struggles.includes(r), index=i, pick=toggle("struggles", r))
+        Why(body=t("q.struggle.why"))
+        if answered
+          Fact(body=t("fact.struggle"), source=t("fact.struggle.src"), url="https://pubmed.ncbi.nlm.nih.gov/17201571/", open=open)
+      else
+        Headline(title=t("q.areas.title"), detail=t("q.multi"))
+        column display="grid" grid-template-columns="repeat(auto-fill, minmax(min(100%, 9rem), 1fr))" gap=10
+          for r, i in ["work", "personal", "study", "health", "home", "money", "family"] key=r
+            Tile(id=`area-${r}`, icon=(r == "work" ? "briefcase.fill" : r == "personal" ? "person.fill" : r == "study" ? "graduationcap.fill" : r == "health" ? "heart.fill" : r == "home" ? "house.fill" : r == "money" ? "creditcard.fill" : "figure.2.and.child.holdinghands"), title=(r == "work" ? t("area.work") : r == "personal" ? t("area.personal") : r == "study" ? t("area.study") : r == "health" ? t("area.health") : r == "home" ? t("area.home") : r == "money" ? t("area.money") : t("area.family")), on=profile.areas.includes(r), index=i, pick=toggle("areas", r))
+        Why(body=t("q.areas.why"))
+        if answered
+          Fact(body=t("fact.areas"), source=t("fact.areas.src"), url="https://pubmed.ncbi.nlm.nih.gov/27101340/", open=open)
+
+component ObRhythm
+  props
+    step: number
+    profile: Profile
+    answered: bool
+    choose: action
+    number: action
+    editWake: action
+    editWind: action
+    slide: action
+    open: action
+  view
+    column gap=18
+      if step == 8
+        Headline(title=t("q.peak.title"), detail="")
+        column gap=10
+          for r, i in ["early", "morning", "midday", "afternoon", "evening", "night"] key=r
+            Option(id=`peak-${r}`, icon=(r == "early" ? "sunrise.fill" : r == "morning" ? "sun.and.horizon.fill" : r == "midday" ? "sun.max.fill" : r == "afternoon" ? "sun.min.fill" : r == "evening" ? "sunset.fill" : "moon.stars.fill"), title=(r == "early" ? t("peak.early") : r == "morning" ? t("peak.morning") : r == "midday" ? t("peak.midday") : r == "afternoon" ? t("peak.afternoon") : r == "evening" ? t("peak.evening") : t("peak.night")), detail=(r == "early" ? "05:00 – 09:00" : r == "morning" ? "09:00 – 12:00" : r == "midday" ? "12:00 – 14:00" : r == "afternoon" ? "14:00 – 18:00" : r == "evening" ? "18:00 – 22:00" : "22:00 – 02:00"), on=(profile.peak == r), index=i, pick=choose("peak", r))
+        Why(body=t("q.peak.why"))
+        if answered
+          Fact(body=t("fact.peak"), source=t("fact.peak.src"), url="https://pubmed.ncbi.nlm.nih.gov/18066734/", open=open)
+      else if step == 9
+        Headline(title=t("q.day.title"), detail=t("q.day.detail"))
+        column gap=12
+          row gap=14 padding=18 border-radius=22 backgroundMaterial="ultra-thin-dark" align-items="center" animation="rise 480ms 220ms both"
+            image "symbol:sf/sunrise.fill" aria-hidden=true font-size="min(-exact-title1, 36px)" color="amber" -exact-symbol-effect="breathe"
+            text t("q.day.wake") font="-exact-headline" color="night.ink" flex=1
+            input type="time" value=profile.wake change=editWake aria-label=t("q.day.wake") testId="wake"
+          row gap=14 padding=18 border-radius=22 backgroundMaterial="ultra-thin-dark" align-items="center" animation="rise 480ms 300ms both"
+            image "symbol:sf/moon.stars.fill" aria-hidden=true font-size="min(-exact-title1, 36px)" color="iris" -exact-symbol-effect="breathe"
+            text t("q.day.wind") font="-exact-headline" color="night.ink" flex=1
+            input type="time" value=profile.wind change=editWind aria-label=t("q.day.wind") testId="wind"
+        Why(body=t("q.day.why"))
+        Fact(body=t("fact.day"), source=t("fact.day.src"), url="https://pubmed.ncbi.nlm.nih.gov/29058942/", open=open)
+      else if step == 10
+        Headline(title=t("q.capacity.title"), detail=t("q.capacity.detail"))
+        column gap=14 padding=22 border-radius=26 backgroundMaterial="ultra-thin-dark" align-items="center" animation="pop 480ms 200ms both"
+          text `${profile.capacity}` font-size=96 line-height=1.18 font-weight=800 font-family="ui-rounded" font-variant-numeric="tabular-nums" color="night.ink" testId="capacity-value"
+          text (profile.capacity <= 3 ? t("q.capacity.light") : profile.capacity <= 6 ? t("q.capacity.steady") : t("q.capacity.packed")) font="-exact-headline" color="iris"
+          input type="range" min=1 max=12 step=1 value=profile.capacity input=slide aria-label=t("q.capacity.title") width="100%" testId="capacity" accent-color="iris"
+        Why(body=t("q.capacity.why"))
+        if answered
+          Fact(body=t("fact.capacity"), source=t("fact.capacity.src"), url="https://doi.org/10.1086/664500", open=open)
+      else
+        Headline(title=t("q.focus.title"), detail="")
+        column display="grid" grid-template-columns="repeat(auto-fill, minmax(min(100%, 7.5rem), 1fr))" gap=10
+          for m, i in [15, 25, 45, 60] key=`${m}`
+            button press=number("focus", m) testId=`focus-${m}` aria-pressed=(profile.focus == m) -exact-press-haptic="selection" appearance="none" class=(profile.focus == m ? NightCardOn : NightCard) display="flex" flex-direction="column" align-items="center" gap=4 padding=22 animation=`pop 420ms ${200 + i * 60}ms both`
+              text `${m}` font-size=48 line-height=1.18 font-weight=800 font-family="ui-rounded" color="night.ink"
+              text t("q.focus.minutes") font="-exact-footnote" color="night.muted"
+        Why(body=t("q.focus.why"))
+        if answered
+          Fact(body=t("fact.focus"), source=t("fact.focus.src"), url="https://pubmed.ncbi.nlm.nih.gov/36044424/", open=open)
+
+component ObStyle
+  props
+    step: number
+    profile: Profile
+    answered: bool
+    first: string
+    choose: action
+    editFirst: action
+    suggest: action
+    open: action
+  view
+    column gap=18
+      if step == 12
+        Headline(title=t("q.capture.title"), detail="")
+        column gap=10
+          Option(id="capture-type", icon="keyboard.fill", title=t("capture.type"), detail=t("capture.type.detail"), on=(profile.capture == "type"), index=0, pick=choose("capture", "type"))
+          Option(id="capture-speak", icon="waveform", title=t("capture.speak"), detail=t("capture.speak.detail"), on=(profile.capture == "speak"), index=1, pick=choose("capture", "speak"))
+          Option(id="capture-dump", icon="sparkles", title=t("capture.dump"), detail=t("capture.dump.detail"), on=(profile.capture == "dump"), index=2, pick=choose("capture", "dump"))
+        Why(body=t("q.capture.why"))
+        if answered
+          Fact(body=t("fact.capture"), source=t("fact.capture.src"), url="https://arxiv.org/abs/1608.07323", open=open)
+      else if step == 13
+        Headline(title=t("q.reminders.title"), detail="")
+        column gap=10
+          Option(id="reminders-gentle", icon="bell.fill", title=t("reminders.gentle"), detail=t("reminders.gentle.detail"), on=(profile.reminders == "gentle"), index=0, pick=choose("reminders", "gentle"))
+          Option(id="reminders-persistent", icon="bell.badge.fill", title=t("reminders.persistent"), detail=t("reminders.persistent.detail"), on=(profile.reminders == "persistent"), index=1, pick=choose("reminders", "persistent"))
+          Option(id="reminders-none", icon="bell.slash.fill", title=t("reminders.none"), detail=t("reminders.none.detail"), on=(profile.reminders == "none"), index=2, pick=choose("reminders", "none"))
+        Why(body=t("q.reminders.why"))
+        if answered
+          Fact(body=t("fact.reminders"), source=t("fact.reminders.src"), url="https://pubmed.ncbi.nlm.nih.gov/26121498/", open=open)
+      else if step == 14
+        Headline(title=t("q.celebrate.title"), detail=t("q.celebrate.detail"))
+        column gap=10
+          Option(id="celebrate-confetti", icon="party.popper.fill", title=t("celebrate.confetti"), detail=t("celebrate.confetti.detail"), on=(profile.celebrate == "confetti"), index=0, pick=choose("celebrate", "confetti"))
+          Option(id="celebrate-calm", icon="circle.hexagongrid.fill", title=t("celebrate.calm"), detail=t("celebrate.calm.detail"), on=(profile.celebrate == "calm"), index=1, pick=choose("celebrate", "calm"))
+          Option(id="celebrate-haptic", icon="hand.tap.fill", title=t("celebrate.haptic"), detail=t("celebrate.haptic.detail"), on=(profile.celebrate == "haptic"), index=2, pick=choose("celebrate", "haptic"))
+        Why(body=t("q.celebrate.why"))
+        if answered
+          Fact(body=t("fact.celebrate"), source=t("fact.celebrate.src"), url="https://pubmed.ncbi.nlm.nih.gov/10589297/", open=open)
+      else if step == 15
+        Headline(title=t("q.weekly.title"), detail="")
+        column gap=10
+          Option(id="weekly-friday", icon="flag.checkered", title=t("weekly.friday"), detail=t("weekly.friday.detail"), on=(profile.weekly == "friday"), index=0, pick=choose("weekly", "friday"))
+          Option(id="weekly-sunday", icon="cup.and.saucer.fill", title=t("weekly.sunday"), detail=t("weekly.sunday.detail"), on=(profile.weekly == "sunday"), index=1, pick=choose("weekly", "sunday"))
+          Option(id="weekly-monday", icon="figure.walk.departure", title=t("weekly.monday"), detail=t("weekly.monday.detail"), on=(profile.weekly == "monday"), index=2, pick=choose("weekly", "monday"))
+        Why(body=t("q.weekly.why"))
+        if answered
+          Fact(body=t("fact.weekly"), source=t("fact.weekly.src"), url="https://pubmed.ncbi.nlm.nih.gov/26479070/", open=open)
+      else
+        Headline(title=t("q.first.title"), detail=t("q.first.detail"))
+        column gap=8 padding=16 border-radius=22 backgroundMaterial="ultra-thin-dark" animation="rise 480ms 220ms both"
+          textarea value=first input=editFirst placeholder=t("q.first.placeholder") aria-label=t("q.first.title") rows=3 maxlength=200 color="night.ink" font-size="1.188rem" border="none" background-color="transparent" testId="first"
+        row flex-wrap="wrap" gap=8
+          for s, i in ["q.first.s1", "q.first.s2", "q.first.s3"] key=s
+            button press=suggest(i == 0 ? t("q.first.s1") : i == 1 ? t("q.first.s2") : t("q.first.s3")) testId=`suggest-${i}` appearance="none" padding="10px 14px" border-radius=999 backgroundMaterial="ultra-thin-dark" animation=`pop 380ms ${360 + i * 70}ms both` -exact-press-haptic="selection"
+              text (i == 0 ? t("q.first.s1") : i == 1 ? t("q.first.s2") : t("q.first.s3")) font="-exact-footnote" color="night.ink"
+        Why(body=t("q.first.why"))
+        if first.trim() != ""
+          Fact(body=t("fact.first"), source=t("fact.first.src"), url="https://kops.uni-konstanz.de/server/api/core/bitstreams/eb48c8cf-7855-478e-90ec-1ea6d44f8252/content", open=open)

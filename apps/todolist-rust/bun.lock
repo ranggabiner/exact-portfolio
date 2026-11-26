@@ -1,0 +1,36 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "todolist-rust",
+      "dependencies": {
+        "@exact/app-icon": "file:.exact/checkout/packages/app-icon",
+        "@exact/calendar": "file:.exact/checkout/packages/calendar",
+        "@exact/language-model": "file:.exact/checkout/packages/language-model",
+        "@exact/notifications": "file:.exact/checkout/packages/notifications",
+        "@exact/quick-actions": "file:.exact/checkout/packages/quick-actions",
+        "@exact/search-index": "file:.exact/checkout/packages/search-index",
+        "@exact/speech-recognition": "file:.exact/checkout/packages/speech-recognition",
+        "@exact/store-review": "file:.exact/checkout/packages/store-review",
+      },
+    },
+  },
+  "packages": {
+    "@exact/app-icon": ["@exact/app-icon@file:.exact/checkout/packages/app-icon", {}],
+
+    "@exact/calendar": ["@exact/calendar@file:.exact/checkout/packages/calendar", {}],
+
+    "@exact/language-model": ["@exact/language-model@file:.exact/checkout/packages/language-model", {}],
+
+    "@exact/notifications": ["@exact/notifications@file:.exact/checkout/packages/notifications", {}],
+
+    "@exact/quick-actions": ["@exact/quick-actions@file:.exact/checkout/packages/quick-actions", {}],
+
+    "@exact/search-index": ["@exact/search-index@file:.exact/checkout/packages/search-index", {}],
+
+    "@exact/speech-recognition": ["@exact/speech-recognition@file:.exact/checkout/packages/speech-recognition", { "peerDependencies": { "@exact/media-capture": "1.0.0" }, "optionalPeers": ["@exact/media-capture"] }],
+
+    "@exact/store-review": ["@exact/store-review@file:.exact/checkout/packages/store-review", {}],
+  }
+}

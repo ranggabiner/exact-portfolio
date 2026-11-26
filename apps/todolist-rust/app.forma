@@ -1,0 +1,22 @@
+forma lumen
+
+theme
+  AccentColor = light-dark(#5a46e0, #8f80f6)
+  night = #0b0820 scheme=fixed
+  night.card = #1c1640 scheme=fixed
+  night.ink = #ffffff scheme=fixed
+  night.muted = #c3bdea scheme=fixed
+  night.faint = #8f88bd scheme=fixed
+  night.fill = rgba(255, 255, 255, 0.09) scheme=fixed
+  night.fill.on = rgba(124, 92, 255, 0.34) scheme=fixed
+  night.line = rgba(255, 255, 255, 0.12) scheme=fixed
+  night.line.on = rgba(177, 158, 255, 0.95) scheme=fixed
+  night.chip = rgba(255, 255, 255, 0.1) scheme=fixed
+  night.track = rgba(255, 255, 255, 0.16) scheme=fixed
+  island = #000000 scheme=fixed
+  night.halo = rgba(124, 92, 255, 0.22) scheme=fixed
+  iris = #7c5cff scheme=fixed
+  iris.deep = #4b2fd6 scheme=fixed
+  rose = #ff6fa8 scheme=fixed
+  amber = #ffb457 scheme=fixed
+  mint = #5ee6c4 scheme=fixed

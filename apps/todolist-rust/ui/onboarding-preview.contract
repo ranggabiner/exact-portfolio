@@ -1,0 +1,213 @@
+// Steps 17–22: the live demo of smart capture, what the answers add up to, the
+// surfaces outside the app, the plan, the icon and the one permission.
+
+use Profile, Draft, Plan, PlanRow from "./model.contract"
+use clockLabel, hourOf, symbol, tint, rise, pop, drop, fade, ripple, breathe, float, glow, NightCard, NightCardOn, slideIn from "./theme.contract"
+use Headline, Fact, Why from "./onboarding-parts.contract"
+
+component DraftCard
+  props
+    draft: Draft
+    index: number
+  view
+    row gap=12 padding=14 border-radius=18 backgroundMaterial="ultra-thin-dark" align-items="center" animation=`pop 520ms ${index * 110}ms both` testId=`demo-draft-${index}`
+      column width=38 height=38 border-radius=12 align-items="center" justify-content="center" background-color=tint(draft.listColor) flex-shrink=0
+        image symbol(draft.listSymbol) aria-hidden=true color="night.ink" font-size="min(-exact-body, 20px)" -exact-symbol-effect="bounce" symbolEffectValue=`${index}`
+      column flex=1 min-width=0 gap=2
+        text draft.title font="-exact-headline" color="night.ink"
+        row gap=6 flex-wrap="wrap"
+          text draft.listName font="-exact-caption1" color="night.muted"
+          if draft.label != ""
+            text `· ${draft.label}` font="-exact-caption1" color="iris"
+      if draft.priority >= 3
+        image "symbol:sf/exclamationmark.3" aria-label=t("priority.high") color="rose"
+
+component ObDemo
+  props
+    demo: string
+    drafts: Draft[]
+    listening: bool
+    starting: bool
+    heard: string
+    speechError: string
+    aiAvailable: bool
+    aiBusy: bool
+    aiUsed: bool
+    editDemo: action
+    mic: action
+    stopMic: action
+    example: action
+    aiSort: action
+  action micTap
+    if listening
+      stopMic()
+    else
+      mic()
+  view
+    column gap=18
+      Headline(title=t("demo.title"), detail=t("demo.detail"))
+      column align-items="center" gap=12 animation="pop 520ms 240ms both"
+        column width=132 height=132 align-items="center" justify-content="center" position="relative"
+          if listening
+            view position="absolute" width=96 height=96 border-radius=48 background-color="iris" animation="ripple 1400ms ease-out infinite" aria-hidden=true
+            view position="absolute" width=96 height=96 border-radius=48 background-color="rose" animation="ripple 1400ms 500ms ease-out infinite" aria-hidden=true
+          button press=micTap testId="mic" aria-label=(listening ? t("demo.stop") : t("demo.speak")) appearance="none" width=96 height=96 border-radius=48 background-image="linear-gradient(145deg, #8d6bff 0%, #6a45f0 55%, #ff6fa8 100%)" display="flex" align-items="center" justify-content="center" box-shadow="0 14px 40px rgba(124,92,255,0.55)" -exact-press-haptic="impact-medium" transition="scale -exact-spring(380, 22, 1)"
+            image (listening ? "symbol:stop-fill" : "symbol:sf/mic.fill") aria-hidden=true font-size=34 color="night.ink" -exact-symbol-effect="replace"
+        text (listening ? t("demo.listening") : starting ? t("demo.starting") : t("demo.tap")) role="status" font="-exact-subheadline" color="night.muted" testId="mic-status"
+        if listening and heard != ""
+          text heard font="-exact-title3" color="night.ink" text-align="center" testId="heard"
+        if speechError != ""
+          text speechError font="-exact-footnote" color="amber" text-align="center" testId="speech-error"
+      row gap=10 padding="10px 14px" border-radius=18 backgroundMaterial="ultra-thin-dark" align-items="flex-start"
+        image "symbol:sf/keyboard" aria-hidden=true color="night.faint" margin-top=8
+        textarea value=demo input=editDemo placeholder=t("demo.placeholder") aria-label=t("demo.placeholder") rows=2 maxlength=400 color="night.ink" border="none" background-color="transparent" flex=1 min-width=0 testId="demo-input"
+      if demo == ""
+        button press=example testId="demo-example" appearance="none" align-self="center" display="flex" align-items="center" gap=8 padding="12px 18px" border-radius=999 backgroundMaterial="ultra-thin-dark" -exact-press-haptic="selection"
+          image "symbol:play-fill" aria-hidden=true color="iris"
+          text t("demo.example") font="-exact-subheadline" font-weight=600 color="night.ink"
+      if drafts.length > 0
+        column gap=10
+          row align-items="center" gap=8
+            image (aiUsed ? "symbol:sf/apple.intelligence" : "symbol:sparkles") aria-hidden=true color="amber" -exact-symbol-effect="variable-color"
+            text (aiUsed ? t("demo.sorted.ai") : t("demo.sorted")) font="-exact-footnote" font-weight=700 color="amber" text-transform="uppercase" letter-spacing=0.6 testId="demo-sorted"
+          // exact-accept lower-key-position
+          for d, i in drafts key=`${aiUsed}-${i}-${d.title}`
+            DraftCard(draft=d, index=i)
+          if aiAvailable and not aiUsed and not listening
+            button press=aiSort disabled=aiBusy testId="demo-ai" buttonStyle="glass" align-self="center"
+              image "symbol:sf/apple.intelligence"
+              text (aiBusy ? t("demo.ai.busy") : t("demo.ai"))
+      Why(body=t("demo.privacy"))
+
+component FitCard
+  props
+    icon: string
+    color: string
+    title: string
+    body: string
+    index: number
+  view
+    row gap=14 padding=16 border-radius=22 backgroundMaterial="ultra-thin-dark" align-items="flex-start" animation=`rise 520ms ${220 + index * 130}ms both`
+      column width=46 height=46 border-radius=14 align-items="center" justify-content="center" background-color=color flex-shrink=0
+        image symbol(icon) aria-hidden=true font-size="min(-exact-title3, 28px)" color="night.ink" -exact-symbol-effect="bounce" symbolEffectValue=`${index}`
+      column flex=1 min-width=0 gap=4
+        text title font="-exact-headline" color="night.ink"
+        text body font="-exact-subheadline" color="night.muted"
+
+component ObFit
+  props
+    profile: Profile
+    sample: string
+  view
+    column gap=14
+      Headline(title=(profile.name.trim() == "" ? t("fit.title") : t("fit.title.name", name=profile.name.trim())), detail=t("fit.detail"))
+      for s, i in (profile.struggles.length == 0 ? ["forgetting", "starting", "overwhelm"] : profile.struggles.slice(0, 4)) key=s
+        FitCard(index=i, icon=(s == "forgetting" ? "bell.badge.fill" : s == "overwhelm" ? "square.3.layers.3d.top.filled" : s == "procrastination" ? "hourglass" : s == "scattered" ? "tray.full.fill" : s == "time" ? "clock.badge.checkmark.fill" : "wand.and.stars"), color=(s == "forgetting" ? "iris" : s == "overwhelm" ? "iris.deep" : s == "procrastination" ? "rose" : s == "scattered" ? "iris" : s == "time" ? "rose" : "iris.deep"), title=(s == "forgetting" ? t("fit.forgetting") : s == "overwhelm" ? t("fit.overwhelm", count=`${min(3, profile.capacity)}`) : s == "procrastination" ? t("fit.procrastination") : s == "scattered" ? t("fit.scattered") : s == "time" ? t("fit.time") : t("fit.starting")), body=(s == "forgetting" ? t("fit.forgetting.body", task=sample) : s == "overwhelm" ? t("fit.overwhelm.body", count=`${min(3, profile.capacity)}`) : s == "procrastination" ? t("fit.procrastination.body", task=sample) : s == "scattered" ? t("fit.scattered.body") : s == "time" ? t("fit.time.body", count=`${profile.capacity}`) : t("fit.starting.body", task=sample)))
+
+component ObEverywhere
+  props
+    profile: Profile
+    sample: string
+    second: string
+    live: bool
+    liveFailed: bool
+    startLive: action
+  view
+    column gap=14
+      Headline(title=t("out.title"), detail=t("out.detail"))
+      // The Dynamic Island, with the person's own task and focus length.
+      row align-self="center" width="92%" height=62 border-radius=31 background-color="island" padding="0px 20px" box-sizing="border-box" align-items="center" gap=12 animation="pop 600ms 260ms both" box-shadow="0 16px 40px rgba(0,0,0,0.45)" aria-label=t("out.island.a11y")
+        image "symbol:timer" aria-hidden=true color="amber" font-size="min(-exact-title3, 28px)" -exact-symbol-effect="pulse"
+        text sample font="-exact-subheadline" font-weight=600 color="night.ink" flex=1 min-width=0 line-clamp=1
+        text `${profile.focus}:00` font="-exact-title3" font-weight=700 color="amber" font-variant-numeric="tabular-nums"
+      button press=startLive disabled=live testId="live-demo" buttonStyle="glass" align-self="center"
+        image (live ? "symbol:checkmark" : "symbol:play-fill")
+        text (live ? t("out.live.on") : t("out.live.try"))
+      if liveFailed
+        text t("out.live.unavailable") font="-exact-caption1" color="night.faint" text-align="center"
+      row gap=12
+        column flex=1 gap=8 padding=14 border-radius=24 backgroundMaterial="ultra-thin-dark" animation="rise 520ms 420ms both"
+          row justify-content="space-between" align-items="center"
+            text t("out.widget") font="-exact-caption1" font-weight=700 color="night.muted"
+            image "symbol:sf/sun.max.fill" aria-hidden=true color="amber" font-size="min(-exact-footnote, 20px)"
+          text sample font="-exact-footnote" font-weight=600 color="night.ink" line-clamp=2
+          text second font="-exact-footnote" color="night.muted" line-clamp=2
+        column flex=1 gap=8 padding=14 border-radius=24 backgroundMaterial="ultra-thin-dark" animation="rise 520ms 540ms both" align-items="flex-start"
+          text t("out.control") font="-exact-caption1" font-weight=700 color="night.muted"
+          column width=52 height=52 border-radius=26 background-color="iris" align-items="center" justify-content="center"
+            image "symbol:add" aria-hidden=true color="night.ink" font-size="min(-exact-title2, 30px)" -exact-symbol-effect="breathe"
+          text t("out.control.body") font="-exact-footnote" color="night.ink"
+      row gap=12 padding=16 border-radius=24 background-image="linear-gradient(120deg, rgba(124,92,255,0.55), rgba(255,111,168,0.4))" align-items="center" animation="rise 520ms 660ms both"
+        image "symbol:sf/siri" aria-hidden=true font-size="min(-exact-title1, 36px)" color="night.ink" -exact-symbol-effect="breathe"
+        column flex=1 min-width=0 gap=2
+          text t("out.siri") font="-exact-caption1" color="night.muted"
+          text t("out.siri.phrase") font="-exact-headline" color="night.ink"
+
+component ObPlan
+  props
+    plan: Plan
+    summary: string
+    writing: bool
+    aiUsed: bool
+  view
+    column gap=14
+      Headline(title=plan.title, detail="")
+      column gap=10 padding=18 border-radius=24 background-image="linear-gradient(135deg, rgba(124,92,255,0.62), rgba(75,47,214,0.45) 55%, rgba(255,111,168,0.38))" animation="pop 640ms 180ms both"
+        row gap=8 align-items="center"
+          image (aiUsed ? "symbol:sf/apple.intelligence" : "symbol:sparkles") aria-hidden=true color="night.ink" -exact-symbol-effect=(writing ? "variable-color" : "bounce") symbolEffectValue=`${writing}`
+          text (writing ? t("plan.writing") : aiUsed ? t("plan.by.ai") : t("plan.summary")) font="-exact-footnote" font-weight=700 color="night.ink" text-transform="uppercase" letter-spacing=0.6
+        text summary font="-exact-body" color="night.ink" testId="plan-summary"
+      for r, i in plan.rows key=r.id
+        row gap=14 padding=14 border-radius=20 backgroundMaterial="ultra-thin-dark" align-items="center" animation=`slideIn 520ms ${520 + i * 150}ms both`
+          column width=42 height=42 border-radius=13 align-items="center" justify-content="center" background-color=tint(r.tint) flex-shrink=0
+            image symbol(r.symbol) aria-hidden=true color="night.ink" font-size="min(-exact-body, 22px)" -exact-symbol-effect="bounce" symbolEffectValue=`${i}`
+          column flex=1 min-width=0 gap=2
+            text r.title font="-exact-headline" color="night.ink"
+            text r.body font="-exact-footnote" color="night.muted"
+          image "symbol:select-fill" aria-hidden=true color="mint" animation=`pop 420ms ${900 + i * 150}ms both`
+      row gap=8 flex-wrap="wrap" animation="fade 600ms 1600ms both"
+        for l in plan.lists key=l.id
+          row gap=6 padding="8px 12px" border-radius=999 backgroundMaterial="ultra-thin-dark" align-items="center"
+            image symbol(l.symbol) aria-hidden=true color=tint(l.color) font-size="min(-exact-footnote, 20px)"
+            text l.name font="-exact-footnote" color="night.ink"
+
+component ObIcon
+  props
+    chosen: string
+    available: bool
+    chooseIcon: action
+  view
+    column gap=18
+      Headline(title=t("icon.title"), detail=t("icon.detail"))
+      column display="grid" grid-template-columns="repeat(auto-fill, minmax(min(100%, 9rem), 1fr))" gap=14
+        for name, i in ["", "Midnight", "Sunrise", "Mono"] key=name
+          button press=chooseIcon(name) testId=`icon-${i}` aria-pressed=(chosen == name) appearance="none" class=(chosen == name ? NightCardOn : NightCard) display="flex" flex-direction="column" align-items="center" gap=10 padding=18 animation=`pop 480ms ${220 + i * 80}ms both` -exact-press-haptic="impact-light"
+            image (i == 0 ? "assets/icons/aurora.png" : i == 1 ? "assets/icons/midnight.png" : i == 2 ? "assets/icons/sunrise.png" : "assets/icons/mono.png") alt="" width=92 height=92 border-radius=22 box-shadow="0 12px 28px rgba(0,0,0,0.35)"
+            row gap=6 align-items="center"
+              text (i == 0 ? t("icon.aurora") : i == 1 ? t("icon.midnight") : i == 2 ? t("icon.sunrise") : t("icon.mono")) font="-exact-subheadline" font-weight=600 color="night.ink"
+              if chosen == name
+                image "symbol:select-fill" aria-hidden=true color="mint" animation="pop 360ms both"
+      if not available
+        Why(body=t("icon.unavailable"))
+
+component ObPermission
+  props
+    profile: Profile
+    lang: string
+    denied: bool
+  view
+    column gap=18
+      Headline(title=t("perm.title"), detail=(profile.reminders == "none" ? t("perm.detail.none") : t("perm.detail")))
+      column align-items="center" animation="pop 520ms 220ms both"
+        column width=104 height=104 border-radius=34 align-items="center" justify-content="center" background-image="linear-gradient(145deg, #8d6bff, #ff6fa8)" box-shadow="0 18px 48px rgba(124,92,255,0.5)"
+          image "symbol:sf/bell.badge.fill" aria-hidden=true font-size=48 color="night.ink" -exact-symbol-effect="wiggle"
+      column gap=0 padding="8px 18px" border-radius=24 backgroundMaterial="ultra-thin-dark"
+        for i in range(3) key=`${i}`
+          row gap=14 padding="14px 0px" align-items="center" animation=`slideIn 480ms ${420 + i * 160}ms both`
+            image (i == 0 ? "symbol:sf/sunrise.fill" : i == 1 ? "symbol:sf/alarm.fill" : "symbol:sf/moon.stars.fill") aria-hidden=true font-size="min(-exact-title2, 30px)" color=(i == 0 ? "amber" : i == 1 ? "rose" : "iris")
+            column flex=1 gap=2
+              text (i == 0 ? t("perm.morning") : i == 1 ? t("perm.task") : t("perm.evening")) font="-exact-headline" color="night.ink"
+              text (i == 0 ? t("perm.morning.body") : i == 1 ? t("perm.task.body") : t("perm.evening.body")) font="-exact-footnote" color="night.muted"
+            text (i == 0 ? clockLabel(profile.wake, lang) : i == 1 ? "•••" : clockLabel(profile.wind, lang)) font="-exact-subheadline" font-weight=700 color="night.ink" font-variant-numeric="tabular-nums"
+      if denied
+        Why(body=t("perm.denied"))

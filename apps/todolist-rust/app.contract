@@ -1,24 +1,905 @@
-// Todo List: the view. data/src/lib.rs answers what it asks for. Colours, fonts,
-// sizes and the safe area are left unsaid, so each platform supplies its own:
-// the header is the navigation bar, its heading the title, its button a bar item.
-shape Greeting
-  text: string
+// Lumen: a to-do list for iPhone. A value-first onboarding, then Today. The
+// view is this Contract; every list, parse and date is the Rust data module's
+// (data/src); the night aurora, ring, physics, confetti and Core Haptics are
+// Swift (modules/apple). Colours, type, bars and sheets are the platform's.
+
+use languageModelAvailability, createLanguageModel, prompt, promptStreaming, languageModelResponse, LanguageModelMessage, LanguageModelAvailability, LanguageModelInfo, LanguageModelResponseInfo, LanguageModelResponse from "@exact/language-model"
+use startSpeechRecognition, stopSpeechRecognition, speechRecognitionState, speechRecognitionAvailability, installSpeechRecognition, SpeechRecognitionInfo, SpeechRecognitionState, SpeechRecognitionAvailability, SpeechRecognitionInstall from "@exact/speech-recognition"
+use showNotification, closeNotification, notificationStatus, requestNotificationPermission, notificationclick, NotificationStatus, NotificationEvent, NotificationAction from "@exact/notifications"
+use setContentIndex, ContentDescription from "@exact/search-index"
+use setAppShortcuts, ShortcutItem, AppleShortcutItem from "@exact/quick-actions"
+use appIcon, setAppIcon, AppIconStatus from "@exact/app-icon"
+use requestReview from "@exact/store-review"
+use showEventEditor, CalendarEvent, EventEditorResult from "@exact/calendar"
+use Time, Profile, Context, TaskRow, Board, Search, ListPage, Detail, Draft, Preview, AiTask, AiCapture, Notice, Reply, Plan, TaskEdit, FocusState from "./ui/model.contract"
+use symbol, clockText, drop, rise, pop, leaveFade from "./ui/theme.contract"
+use Onboarding from "./ui/onboarding.contract"
+use TodayScreen, UpcomingScreen, ListsScreen, ListScreen, NewListScreen, InsightsScreen, SearchScreen from "./ui/home.contract"
+use CaptureScreen from "./ui/capture.contract"
+use DetailScreen, MissingTask from "./ui/detail.contract"
+use FocusScreen from "./ui/focus.contract"
+use SettingsScreen from "./ui/settings.contract"
+use TodayWidget from "./widget.contract"
+use FocusActivity from "./activities.contract"
+
+shape ActivityHandle
+  id: string
+
+// Only whether this build and device can run Live Activities.
+shape LiveEntry
+  id: string
+  activityState: string
+
+shape LiveSupport
+  linked: bool
+  activities: LiveEntry[]
 
 routes nav
-  home "/"
+  tab today "/"
+    task "/task/:id"
+    capture "/capture"
+    focus "/focus"
+    settings "/settings"
+  tab upcoming "/upcoming"
+  tab lists "/lists"
+    list "/list/:id"
+    newlist "/new-list"
+  tab insights "/insights"
+  tab search "/search"
 
-component TodoList
-  resource greeting = greeting("Jokowi") as shape Greeting
-  state liked = false
-  action like
-    liked = not liked
+fn chapterOpens(step: number): bool = step == 4 or step == 8 or step == 12 or step == 17 or step == 20
+
+component Lumen
+  // Onboarding answers: kept on the device and read by the features named in
+  // docs/onboarding.md.
+  state onboarded = false persist
+  state obStep = 0 persist
+  state obBack = false
+  state obAnswered = -1
+  state pName = "" persist
+  state pRole = "professional" persist
+  state pStruggles: string[] = [] persist
+  state pAreas: string[] = ["work", "personal"] persist
+  state pPeak = "morning" persist
+  state pWake = "07:00" persist
+  state pWind = "22:00" persist
+  state pCapacity = 5 persist
+  state pFocus = 25 persist
+  state pCapture = "type" persist
+  state pReminders = "gentle" persist
+  state pCelebrate = "confetti" persist
+  state pWeekly = "friday" persist
+  state pFirst = "" persist
+  state pDemo = "" persist
+  state schemeChoice = "system" persist
+  state iconPick = "" persist
+  state reviewAsked = false persist
+  state finishing = false
+  state notifDenied = false
+
+  state now = 0
+  state toggling: string[] = []
+  state queued: string[] = []
+  state aimed = ""
+  state burst = 0
+  state celebrating = false
+  state planBurstAt = 0
+  state toast = ""
+  state toastUndo = false
+  state toastBeat = 0
+  state notices: Notice[] = []
+
+  state captureText = ""
+  state captureList = "inbox"
+  state captureMode = "type"
+  state aiTasks: AiTask[] = []
+  state aiTarget = ""
+
+  state speechTarget = ""
+  state recognitionId = ""
+  state speechNote = ""
+
+  state planResponseId = ""
+
+  state query = ""
+  state filter = "all"
+
+  state newName = ""
+  state newSymbol = "star.fill"
+  state newColor = "purple"
+
+  state focusTask = "" persist
+  state focusTitle = "" persist
+  state focusPhase = "idle" persist
+  state focusMinutes = 25 persist
+  state focusEndsAt = 0 persist
+  state focusLeft = 0 persist
+  state focusTotal = 0 persist
+  state focusActivityId = "" persist
+  state liveStarted = false
+  state liveUnavailable = false
+  state demoActivityId = ""
+
+  resource time = exactTime() as shape Time
+  derive lang = time.resolvedLocale.startsWith("id") ? "id" : "en"
+  derive minuteNow = floor((time.epochAtZero + now) / 60000) * 60000
+  derive context = Context(now=minuteNow, offset=time.utcOffset, lang=lang)
+  derive profile = Profile(name=pName, role=pRole, struggles=pStruggles, areas=pAreas, peak=pPeak, wake=pWake, wind=pWind, capacity=pCapacity, focus=pFocus, capture=pCapture, reminders=pReminders, celebrate=pCelebrate, weekly=pWeekly)
+  derive todayKey = formatDate(minuteNow, time.utcOffset, "iso")
+
+  resource board = board(profile, context) when onboarded as shape Board else empty()
+  resource found = search(query, filter, context) when onboarded as shape Search else empty()
+  derive listEntry = stack(nav).filter(e => e.name == "list").at(-1)
+  derive openList = match listEntry { case some(e) => e.params.id, case none => "" }
+  resource listView = listPage(openList, context) when openList != "" as shape ListPage else empty()
+  derive taskEntry = stack(nav).filter(e => e.name == "task").at(-1)
+  derive openTask = match taskEntry { case some(e) => e.params.id, case none => "" }
+  resource detail = taskDetail(openTask, context) when openTask != "" as shape Detail else empty()
+  // While a person speaks, their words are sorted into cards as they arrive.
+  derive captureSaid = recognitionId != "" and speechTarget == "capture" and heard != "" ? heard : captureText
+  derive demoSaid = recognitionId != "" and speechTarget == "demo" and heard != "" ? heard : pDemo
+  resource typed = parseCapture(captureSaid, captureMode == "dump", captureList, profile, context) as shape Preview else empty()
+  resource demoTyped = parseCapture(demoSaid, false, "inbox", profile, context) as shape Preview else empty()
+  resource smart = parseAi(aiTasks, (aiTarget == "capture" ? captureList : "inbox"), profile, context) when aiTasks.length > 0 as shape Preview else empty()
+  derive demoByAi = aiTarget == "demo" and aiTasks.length > 0
+  derive captureByAi = aiTarget == "capture" and aiTasks.length > 0
+  derive demoDrafts = demoByAi ? smart.drafts : demoTyped.drafts
+  derive captureDrafts = captureByAi ? smart.drafts : typed.drafts
+
+  // Apple's on-device model: the plan's words, and sorting free text.
+  resource ai = languageModelAvailability() as shape LanguageModelAvailability else empty()
+  derive aiReady = ai.availability == "available"
+  mutation aiSession as shape LanguageModelInfo then aiSessionReady
+  mutation aiOut as shape AiCapture then aiSorted
+  mutation planSession as shape LanguageModelInfo then planSessionReady
+  mutation planStream as shape LanguageModelResponseInfo then planStreaming
+  resource plan = planFor(profile, context) as shape Plan else empty()
+  resource planReply = languageModelResponse(response=planResponseId) when planResponseId != "" as shape LanguageModelResponse else empty()
+  resource planChecked = checkedSummary(planReply.text, profile, context) when planReply.state == "complete" as shape string else empty()
+  derive planWriting = planResponseId != "" and planReply.state == "generating"
+  derive planByAi = planReply.state == "complete" and planChecked != "" and planChecked == planReply.text.trim()
+  derive planSummary = planByAi ? planChecked : planWriting and planReply.text != "" ? planReply.text : plan.summary
+
+  // Speech to text on the device (SpeechAnalyzer).
+  mutation speechStarted as shape SpeechRecognitionInfo then speechBegan
+  mutation speechStopped as shape SpeechRecognitionInfo
+  resource speech = speechRecognitionState(recognition=recognitionId, interval=150) when recognitionId != "" as shape SpeechRecognitionState else empty()
+  derive finals = speech.results.map(r => r.alternatives.slice(0, 1).map(a => a.transcript).join("")).join(" ")
+  derive interim = match speech.interim { case some(i) => i.alternatives.slice(0, 1).map(a => a.transcript).join(""), case none => "" }
+  derive heard = `${finals} ${interim}`.trim()
+  derive listening = recognitionId != "" and speech.state != "ended"
+  derive speechCode = match failure(speechStarted) { case some(f) => f.code, case none => "" }
+  derive speechProblem = speechCode == "NotAllowedError" ? t("speech.denied") : speechCode != "" ? t("speech.unavailable") : speechNote
+  // Apple's on-device model for the language may still need its download.
+  derive speechTag = lang == "id" ? "id-ID" : "en-US"
+  resource speechModel = speechRecognitionAvailability(langs=[speechTag], processLocally=true) as shape SpeechRecognitionAvailability else empty()
+  mutation speechInstall as shape SpeechRecognitionInstall
+
+  resource notif = notificationStatus() as shape NotificationStatus else empty()
+  mutation notifAsked as shape NotificationStatus then permissionAnswered
+  resource nudgeList = nudges(profile, context) when onboarded and notif.state == "granted" as shape Notice[] else empty()
+
+  resource live = exactActivities() as shape LiveSupport else empty()
+  resource icon = appIcon() as shape AppIconStatus else empty()
+  mutation iconSet as shape AppIconStatus refreshes icon
+  derive chosenIcon = icon.available ? match icon.icon { case some(i) => i, case none => "" } : iconPick
+
+  mutation calendarEdit as shape EventEditorResult
+  mutation activitySend as shape ActivityHandle then activityStarted
+  mutation activityEnd as shape ActivityHandle
+  // The person or the system can end a Live Activity; only a listed one takes a send.
+  derive focusAlive = live.activities.filter(a => a.id == focusActivityId and a.activityState != "ended" and a.activityState != "dismissed").length > 0
+  derive demoAlive = live.activities.filter(a => a.id == demoActivityId and a.activityState != "ended" and a.activityState != "dismissed").length > 0
+  mutation demoLive as shape ActivityHandle then demoLiveStarted
+
+  mutation wrote as shape Reply queue refreshes board, found, listView, detail then afterWrite
+  mutation onboardWrite as shape Reply refreshes board, found then onboardDone
+
+  derive sample = match demoDrafts.at(0) { case some(d) => d.title, case none => pFirst.trim() != "" ? pFirst.trim() : t("sample.task") }
+  derive second = match demoDrafts.at(1) { case some(d) => d.title, case none => t("sample.task2") }
+  derive focusBarText = focusPhase == "running" or focusPhase == "paused" ? clockText(focusLeft) : ""
+
+  tool addTask writes additive closed "Add a task to Lumen. The words can include a day and a time." = addFromTool
+    returns "Added to Lumen."
+  tool todaySummary reads "How many tasks are due today in Lumen." = readToday
+    returns board.headline
+  tool completeNext writes closed "Complete the most urgent task in Lumen." = completeFromTool
+    returns "Completed."
+    available when board.nextId != ""
+
+  // ── Clocks ────────────────────────────────────────────────────────────────
+  task tick mount
+    every(15000, step)
+  task guard when not onboarded and top(nav).name != "today" key=top(nav).id
+    after(1, resetNav)
+  task commit when toggling.length > 0 key=toggling.join(",")
+    after(420, commitToggle)
+  task flush when notices.length > 0 key=notices.length
+    after(40, postNext)
+  task toastAway when toast != "" key=toastBeat
+    after(3200, clearToast)
+  task speechOver when recognitionId != "" and speech.state == "ended" key=recognitionId
+    after(60, speechFinished)
+  task onboardingFailed when finishing and (match failure(onboardWrite) { case some(f) => true, case none => false })
+    after(1, onboardFailed)
+  task writeFailed when (match failure(wrote) { case some(f) => true, case none => false }) key=(match failure(wrote) { case some(f) => f.message, case none => "" })
+    after(1, saveFailed)
+  // A pause of a couple of seconds ends a voice capture by itself.
+  task silence when recognitionId != "" and heard != "" key=heard
+    after(2400, stopListening)
+  // The app icon's menu, in the language the app shows.
+  task shortcuts when onboarded and live.linked key=lang
+    after(800, publishShortcuts)
+  task sortFailed when aiTarget != "" and not pending(aiSession) and not pending(aiOut) and (match failure(aiOut) { case some(f) => true, case none => match failure(aiSession) { case some(g) => true, case none => false } })
+    after(1, smartSortFailed)
+  task partyOver when celebrating key=burst
+    after(4800, stopCelebrating)
+  task planReady when obStep == 20 and not onboarded
+    after(1500, celebratePlan)
+  task focusTick when focusPhase == "running"
+    every(250, tickFocus)
+  task focusOpen when match stack(nav).filter(e => e.name == "focus").at(-1) { case some(e) => true, case none => false } key=match stack(nav).filter(e => e.name == "focus").at(-1) { case some(e) => e.id, case none => 0 }
+    after(1, prepareFocus)
+  task captureOpen when match stack(nav).filter(e => e.name == "capture").at(-1) { case some(e) => true, case none => false } key=match stack(nav).filter(e => e.name == "capture").at(-1) { case some(e) => e.id, case none => 0 }
+    after(1, prepareCapture)
+  task nudge when onboarded and nudgeList.length > 0 key=nudgeList.map(n => `${n.tag}${n.at}${n.body}`).join("|")
+    after(1500, scheduleNudges)
+  task spotlight when onboarded and board.ready key=board.spotlight.map(s => `${s.id}${s.title}${s.detail}`).join("|")
+    after(1200, indexTasks)
+
+  action step
+    now = performanceNow()
+  action resetNav
+    nav = open(nav, "/")
+  action celebrate
+    burst = burst + 1
+    celebrating = true
+  action stopCelebrating
+    celebrating = false
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  action follow(url: string)
+    nav = go(nav, url)
+  action goBack
+    nav = back(nav)
+  action pickTab(name: string)
+    nav = select(nav, name)
+  action open(url: string)
+    openURL(url)
+
+  // ── Onboarding ────────────────────────────────────────────────────────────
+  action nextStep
+    if obStep < 22
+      let to = obStep + 1
+      obBack = false
+      obStep = to
+      obAnswered = -1
+      planBurstAt = 0
+      if chapterOpens(to)
+        haptic("impact-medium")
+      if to == 20 and aiReady and planResponseId == ""
+        send planSession = createLanguageModel(initialPrompts=[LanguageModelMessage(role="system", content="You write two short, warm, plain sentences about a person's daily plan.")])
+      if to != 17 and recognitionId != ""
+        send speechStopped = stopSpeechRecognition(recognition=recognitionId)
+        recognitionId = ""
+  action prevStep
+    if obStep > 0
+      obBack = true
+      obStep = obStep - 1
+      obAnswered = -1
+      planBurstAt = 0
+  action skipStep
+    if obStep == 22
+      finishOnboarding()
+    else
+      nextStep()
+  action chooseLanguage(tag: string)
+    setLocale(tag)
+    haptic("selection")
+  action editName(v: string)
+    pName = v
+  action choose(field: string, value: string)
+    obAnswered = obStep
+    if field == "role"
+      pRole = value
+    else if field == "peak"
+      pPeak = value
+    else if field == "capture"
+      pCapture = value
+    else if field == "reminders"
+      pReminders = value
+    else if field == "weekly"
+      pWeekly = value
+    else if field == "celebrate"
+      pCelebrate = value
+      planBurstAt = planBurstAt + 1
+      haptic("success")
+    else if field == "focusText"
+      match parseNumber(value)
+        case some(n)
+          pFocus = n
+        case none
+          pFocus = pFocus
+  action toggleMulti(field: string, value: string)
+    obAnswered = obStep
+    if field == "struggles"
+      pStruggles = pStruggles.includes(value) ? pStruggles.filter(s => s != value) : pStruggles.concat([value])
+    else
+      pAreas = pAreas.includes(value) ? pAreas.filter(s => s != value) : pAreas.concat([value])
+  action setNumber(field: string, n: number)
+    obAnswered = obStep
+    pFocus = n
+  action slideCapacity(n: number)
+    if n != pCapacity
+      haptic("selection")
+    pCapacity = n
+    obAnswered = obStep
+  action editWake(v: string)
+    pWake = v
+  action editWind(v: string)
+    pWind = v
+  action editFirst(v: string)
+    pFirst = v
+  action suggestFirst(v: string)
+    pFirst = v
+  action editDemo(v: string)
+    pDemo = v
+    aiTasks = []
+  action tryExample
+    pDemo = t("demo.example.text")
+    aiTasks = []
+    haptic("success")
+  action celebratePlan
+    planBurstAt = planBurstAt + 1
+    haptic("success")
+  action startLiveDemo
+    let at = time.epochAtZero + performanceNow()
+    if live.linked
+      liveStarted = true
+      send demoLive = startActivity("focus", FocusState(title=sample, list="Lumen", startedAt=at, endsAt=at + pFocus * 60000, minutes=pFocus))
+    else
+      liveUnavailable = true
+  action demoLiveStarted
+    match demoLive
+      case some(a)
+        demoActivityId = a.id
+      case none
+        demoActivityId = ""
+  action chooseIcon(name: string)
+    iconPick = name
+    haptic("impact-light")
+    if icon.available
+      if name == ""
+        send iconSet = setAppIcon()
+      else
+        send iconSet = setAppIcon(icon=name)
+  action allowFromOnboarding
+    if pReminders == "none" or notif.state != "prompt"
+      finishOnboarding()
+    else
+      send notifAsked = requestNotificationPermission()
+  action permissionAnswered
+    match notifAsked
+      case some(s)
+        notifDenied = s.state == "denied"
+        if not onboarded
+          finishOnboarding()
+      case none
+        notifDenied = notifDenied
+  action onboardFailed
+    finishing = false
+    toast = t("error.save")
+    toastUndo = false
+    toastBeat = toastBeat + 1
+    haptic("error")
+  action saveFailed
+    queued = []
+    toggling = []
+    toast = t("error.save")
+    toastUndo = false
+    toastBeat = toastBeat + 1
+    haptic("error")
+  action finishOnboarding
+    if not finishing and not onboarded
+      finishing = true
+      if recognitionId != ""
+        send speechStopped = stopSpeechRecognition(recognition=recognitionId)
+        recognitionId = ""
+      send onboardWrite = completeOnboarding(profile, demoDrafts, pFirst, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action onboardDone
+    match onboardWrite
+      case some(r)
+        finishing = false
+        if r.ok
+          notices = notices.concat(r.notices)
+          onboarded = true
+          nav = open(nav, "/")
+          celebrate()
+          toast = t("toast.ready")
+          toastUndo = false
+          toastBeat = toastBeat + 1
+          haptic("success")
+          if demoAlive
+            send activityEnd = endActivity(demoActivityId, FocusState(title=sample, list="Lumen", startedAt=0, endsAt=0, minutes=pFocus), "immediate")
+          demoActivityId = ""
+        else
+          toast = r.message
+          toastBeat = toastBeat + 1
+      case none
+        finishing = false
+  action publishShortcuts
+    setAppShortcuts(shortcuts=[ShortcutItem(name=t("shortcut.capture"), short_name=none, description=none, url="/capture", icons=none, apple=some(AppleShortcutItem(symbol=some("plus.circle.fill"))), android=none), ShortcutItem(name=t("shortcut.voice"), short_name=none, description=none, url="/capture?voice=1", icons=none, apple=some(AppleShortcutItem(symbol=some("mic.fill"))), android=none), ShortcutItem(name=t("shortcut.focus"), short_name=none, description=none, url="/focus", icons=none, apple=some(AppleShortcutItem(symbol=some("timer"))), android=none)])
+
+  // ── Speech ────────────────────────────────────────────────────────────────
+  action listen(target: string)
+    if recognitionId == "" and not pending(speechStarted)
+      speechTarget = target
+      aiTasks = []
+      speechNote = ""
+      if speechModel.availability == "downloadable"
+        speechNote = t("speech.downloading")
+        send speechInstall = installSpeechRecognition(langs=[speechTag], processLocally=true)
+      else
+        send speechStarted = startSpeechRecognition(microphone=true, lang=speechTag, continuous=true, interimResults=true, processLocally=true)
+  action speechBegan
+    match speechStarted
+      case some(r)
+        recognitionId = r.id
+      case none
+        recognitionId = ""
+  action stopListening
+    if recognitionId != ""
+      let said = heard
+      if said != ""
+        if speechTarget == "demo"
+          pDemo = said
+        else
+          captureText = said
+      send speechStopped = stopSpeechRecognition(recognition=recognitionId)
+      recognitionId = ""
+  action speechFinished
+    let said = heard
+    let problem = match speech.error { case some(code) => code, case none => "" }
+    if said == "" and problem != "" and problem != "aborted"
+      speechNote = problem == "no-speech" ? t("speech.nothing") : problem == "not-allowed" ? t("speech.denied") : t("speech.unavailable")
+    if said != ""
+      if speechTarget == "demo"
+        pDemo = said
+      else
+        captureText = said
+      haptic("success")
+    recognitionId = ""
+
+  // ── Apple Intelligence ────────────────────────────────────────────────────
+  action sortWithAi(target: string)
+    aiTarget = target
+    aiTasks = []
+    send aiSession = createLanguageModel(initialPrompts=[LanguageModelMessage(role="system", content="You turn a person's free text into their to-do items. Include only tasks they mentioned. Keep each title short and in their language. Copy any words about the day or time into when, else leave it empty. priority is high, medium, low or none.")])
+  action aiSessionReady
+    match aiSession
+      case some(s)
+        send aiOut = prompt(session=s.id, input=(aiTarget == "demo" ? pDemo : captureText), responseConstraint="AiCapture")
+      case none
+        aiTarget = ""
+  action aiSorted
+    match aiOut
+      case some(r)
+        aiTasks = r.tasks
+        haptic("success")
+      case none
+        aiTarget = ""
+  action smartSortFailed
+    aiTarget = ""
+    toast = t("error.ai")
+    toastUndo = false
+    toastBeat = toastBeat + 1
+    haptic("warning")
+  action planSessionReady
+    match planSession
+      case some(s)
+        send planStream = promptStreaming(session=s.id, input=plan.prompt)
+      case none
+        planResponseId = ""
+  action planStreaming
+    match planStream
+      case some(r)
+        planResponseId = r.id
+      case none
+        planResponseId = ""
+
+  // ── Tasks ─────────────────────────────────────────────────────────────────
+  action toggleTask(id: string)
+    // Ask for a rating on a good moment: the person finishing a task, after a few.
+    if not reviewAsked and board.stats.totalDone >= 5 and not queued.includes(id)
+      reviewAsked = true
+      requestReview()
+    if queued.includes(id)
+      queued = queued.filter(x => x != id)
+      toggling = toggling.filter(x => x != id)
+    else if not toggling.includes(id)
+      queued = queued.concat([id])
+      toggling = toggling.concat([id])
+  action commitToggle
+    match first(toggling)
+      case some(id)
+        toggling = toggling.slice(1)
+        send wrote = toggleTask(id, profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+      case none
+        toggling = []
+  action deleteTask(id: string)
+    haptic("warning")
+    send wrote = deleteTask(id, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action aim(id: string)
+    aimed = id
+  action openTaskScreen(id: string)
+    nav = push(nav, path("task", id))
+  action afterWrite
+    match wrote
+      case some(r)
+        queued = queued.filter(x => x != r.id)
+        notices = notices.concat(r.notices)
+        if r.message != ""
+          toast = r.message
+          toastUndo = r.undoable
+          toastBeat = toastBeat + 1
+        if not r.ok
+          queued = []
+          haptic("error")
+        else if r.completed
+          haptic("success")
+          if r.celebrate
+            celebrate()
+      case none
+        queued = []
+  action undoDelete
+    toast = ""
+    send wrote = undoDelete(profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action clearToast
+    toast = ""
+  action scheduleNudges
+    notices = notices.concat(nudgeList)
+  action postNext
+    match first(notices)
+      case some(n)
+        notices = notices.slice(1)
+        if n.cancel
+          closeNotification(tag=n.tag)
+        else if notif.state == "granted"
+          if n.tag.startsWith("task-")
+            if lang == "id"
+              showNotification(title=n.title, body=n.body, tag=n.tag, showTrigger=n.at, actions=[NotificationAction(action="selesai", title="Selesai", foreground=false, destructive=false, authenticationRequired=false, placeholder=none), NotificationAction(action="tunda", title="1 jam lagi", foreground=false, destructive=false, authenticationRequired=false, placeholder=none)])
+            else
+              showNotification(title=n.title, body=n.body, tag=n.tag, showTrigger=n.at, actions=[NotificationAction(action="complete", title="Done", foreground=false, destructive=false, authenticationRequired=false, placeholder=none), NotificationAction(action="snooze", title="In 1 hour", foreground=false, destructive=false, authenticationRequired=false, placeholder=none)])
+          else
+            showNotification(title=n.title, body=n.body, tag=n.tag, showTrigger=n.at, navigate=n.navigate)
+      case none
+        notices = []
+  action notified(tag: string, e: NotificationEvent)
+    let id = tag.replaceAll("task-", "").replaceAll("-again", "")
+    match e.action
+      case some(a)
+        if a == "complete" or a == "selesai"
+          send wrote = toggleTask(id, profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+        else
+          send wrote = snoozeTask(id, "hour", profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+      case none
+        if tag.startsWith("task-")
+          nav = go(nav, path("task", id))
+  action indexTasks
+    setContentIndex(kind="task", entries=board.spotlight.map(s => ContentDescription(id=s.id, kind=some("task"), title=s.title, description=some(s.detail), category=none, icons=none, url=`/task/${s.id}`, apple=none)))
+  action snoozeAimed(preset: string)
+    send wrote = snoozeTask(aimed, preset, profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action runSuggestion(kind: string, taskId: string)
+    haptic("selection")
+    if kind == "balance"
+      send wrote = balanceDay(profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+    else if kind == "catchup"
+      send wrote = catchUp(profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+    else if kind == "focus"
+      nav = push(nav, path("focus") + `?task=${encodeURIComponent(taskId)}`)
+    else if kind == "twomin"
+      nav = push(nav, path("focus") + `?task=${encodeURIComponent(taskId)}&m=2`)
+    else if kind == "pick"
+      nav = push(nav, path("task", taskId))
+    else if kind == "review"
+      nav = select(nav, "insights")
+    else if kind == "tomorrow"
+      nav = push(nav, "/capture")
+    else if kind == "menu-toggle"
+      send wrote = toggleTask(aimed, profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+    else if kind == "menu-focus"
+      nav = push(nav, path("focus") + `?task=${encodeURIComponent(aimed)}`)
+    else if kind == "menu-flag"
+      send wrote = flagTask(aimed, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+    else if kind == "menu-delete"
+      send wrote = deleteTask(aimed, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+    else if kind.startsWith("menu-")
+      send wrote = snoozeTask(aimed, kind.replaceAll("menu-", ""), profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action reloadBoard
+    refresh board
+  action shareDay
+    share(title="Lumen", text=board.share)
+
+  // ── Capture ───────────────────────────────────────────────────────────────
+  action openCapture
+    nav = push(nav, "/capture")
+  action openVoice
+    nav = push(nav, "/capture?voice=1")
+    listen("capture")
+  action openListCapture
+    nav = push(nav, path("capture") + `?list=${encodeURIComponent(openList)}`)
+  action prepareCapture
+    match stack(nav).filter(e => e.name == "capture").at(-1)
+      case some(e)
+        // A draft left by Cancel or a swipe is still here; saving clears it.
+        aiTasks = []
+        aiTarget = ""
+        let voiced = searchParam(e, "voice") == "1"
+        captureMode = voiced ? "speak" : pCapture
+        let wanted = searchParam(e, "list")
+        captureList = wanted == "" ? "inbox" : wanted
+      case none
+        aiTasks = []
+  action editCapture(v: string)
+    captureText = v
+    aiTasks = []
+  action pickMode(m: string)
+    captureMode = m
+    haptic("selection")
+    if m != "speak" and recognitionId != ""
+      send speechStopped = stopSpeechRecognition(recognition=recognitionId)
+      recognitionId = ""
+  action pickCaptureList(v: string)
+    captureList = v
+  action exampleCapture(v: string)
+    captureText = v
+    haptic("selection")
+  action saveCapture
+    if captureDrafts.length > 0
+      send wrote = addDrafts(captureDrafts, profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+      if recognitionId != ""
+        send speechStopped = stopSpeechRecognition(recognition=recognitionId)
+        recognitionId = ""
+      captureText = ""
+      aiTasks = []
+      nav = back(nav)
+  action cancelCapture
+    if recognitionId != ""
+      send speechStopped = stopSpeechRecognition(recognition=recognitionId)
+      recognitionId = ""
+    nav = back(nav)
+
+  // ── Detail ────────────────────────────────────────────────────────────────
+  action saveDetail(edit: TaskEdit)
+    send wrote = saveTask(edit, profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+    nav = back(nav)
+  action deleteDetail
+    send wrote = deleteTask(openTask, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+    nav = back(nav)
+  action toggleDetail
+    send wrote = toggleTask(openTask, profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action flagDetail
+    send wrote = flagTask(openTask, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action focusDetail
+    nav = push(nav, path("focus") + `?task=${encodeURIComponent(openTask)}`)
+  action addStep(title: string)
+    send wrote = addSubtask(openTask, title, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action toggleStep(id: string)
+    send wrote = toggleSubtask(openTask, id, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action removeStep(id: string)
+    send wrote = removeSubtask(openTask, id, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action addToCalendar
+    let task = detail.task
+    if task.due != ""
+      let start = `${task.due}T${task.time == "" ? "09:00" : task.time}:00`
+      send calendarEdit = showEventEditor(event=CalendarEvent(id=none, uid=none, calendarId=none, title=task.title, description=some(task.notes), start=start, timeZone=some(time.timeZone), duration=`PT${task.estimate > 0 ? task.estimate : 30}M`, showWithoutTime=false, location=none, url=none, status="confirmed", freeBusyStatus="busy", recurrenceId=none, utcStart=none, utcEnd=none, apple=none))
+
+  // ── Lists ─────────────────────────────────────────────────────────────────
+  action openListScreen(id: string)
+    nav = push(nav, path("list", id))
+  action openNewList
+    newName = ""
+    newSymbol = "star.fill"
+    newColor = "purple"
+    nav = push(nav, "/new-list")
+  action editListName(v: string)
+    newName = v
+  action pickSymbol(s: string)
+    newSymbol = s
+  action pickColor(c: string)
+    newColor = c
+  action saveList
+    if newName.trim() != ""
+      send wrote = createList(newName, newSymbol, newColor, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+      nav = back(nav)
+  action deleteList
+    send wrote = removeList(openList, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+    nav = back(nav)
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  action editQuery(v: string)
+    query = v
+  action pickFilter(f: string)
+    filter = f
+    haptic("selection")
+
+  // ── Focus ─────────────────────────────────────────────────────────────────
+  action openNextFocus
+    nav = push(nav, path("focus") + `?task=${encodeURIComponent(board.nextId)}`)
+  action openRunningFocus
+    nav = push(nav, "/focus")
+  action prepareFocus
+    match stack(nav).filter(e => e.name == "focus").at(-1)
+      case some(e)
+        if focusPhase == "idle" or focusPhase == "done"
+          let id = searchParam(e, "task")
+          let wanted = id == "" ? board.nextId : id
+          focusTask = wanted
+          let rows = board.today.map(s => s.tasks).flat().concat(board.later).concat(board.upcoming.map(s => s.tasks).flat())
+          let named = match rows.filter(r => r.id == wanted).at(0) { case some(r) => r.title, case none => wanted == board.nextId and board.nextTitle != "" ? board.nextTitle : t("focus.generic") }
+          focusTitle = named
+          let minutes = match parseNumber(searchParam(e, "m")) { case some(n) => n, case none => pFocus }
+          focusMinutes = minutes
+          focusTotal = minutes * 60000
+          focusLeft = minutes * 60000
+          focusPhase = "idle"
+      case none
+        focusPhase = focusPhase
+  action pickMinutes(m: number)
+    focusMinutes = m
+    focusTotal = m * 60000
+    focusLeft = m * 60000
+    haptic("selection")
+  action startFocus
+    let at = time.epochAtZero + performanceNow()
+    let ends = at + focusMinutes * 60000
+    focusTotal = focusMinutes * 60000
+    focusLeft = focusMinutes * 60000
+    focusEndsAt = ends
+    focusPhase = "running"
+    if live.linked
+      send activitySend = startActivity("focus", FocusState(title=focusTitle, list="Lumen", startedAt=at, endsAt=ends, minutes=focusMinutes))
+    notices = notices.concat([Notice(tag="focus-end", title=t("focus.done"), body=focusTitle, at=ends, cancel=false, navigate="/focus")])
+  action activityStarted
+    match activitySend
+      case some(a)
+        focusActivityId = a.id
+      case none
+        focusActivityId = ""
+  action endLive
+    if focusAlive
+      send activityEnd = endActivity(focusActivityId, FocusState(title=focusTitle, list="Lumen", startedAt=0, endsAt=0, minutes=focusMinutes), "immediate")
+    focusActivityId = ""
+  action pauseFocus
+    focusLeft = max(0, focusEndsAt - (time.epochAtZero + performanceNow()))
+    focusPhase = "paused"
+    endLive()
+    notices = notices.concat([Notice(tag="focus-end", title="", body="", at=0, cancel=true, navigate="")])
+  action resumeFocus
+    let at = time.epochAtZero + performanceNow()
+    let ends = at + focusLeft
+    focusEndsAt = ends
+    focusPhase = "running"
+    if live.linked
+      send activitySend = startActivity("focus", FocusState(title=focusTitle, list="Lumen", startedAt=ends - focusTotal, endsAt=ends, minutes=focusMinutes))
+    notices = notices.concat([Notice(tag="focus-end", title=t("focus.done"), body=focusTitle, at=ends, cancel=false, navigate="/focus")])
+  action extendFocus
+    let total = focusTotal + 300000
+    focusTotal = total
+    focusLeft = focusLeft + 300000
+    if focusPhase == "running"
+      let ends = focusEndsAt + 300000
+      focusEndsAt = ends
+      if focusAlive
+        send activityEnd = updateActivity(focusActivityId, FocusState(title=focusTitle, list="Lumen", startedAt=ends - total, endsAt=ends, minutes=focusMinutes + 5), none, none)
+      notices = notices.concat([Notice(tag="focus-end", title=t("focus.done"), body=focusTitle, at=ends, cancel=false, navigate="/focus")])
+  action tickFocus
+    let left = max(0, focusEndsAt - (time.epochAtZero + performanceNow()))
+    focusLeft = left
+    if left == 0
+      focusPhase = "done"
+      celebrate()
+      haptic("success")
+      endLive()
+      send wrote = logFocus(focusTask, round(focusTotal / 60000), Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action finishFocus
+    let left = focusPhase == "running" ? max(0, focusEndsAt - (time.epochAtZero + performanceNow())) : focusLeft
+    focusPhase = "done"
+    focusLeft = 0
+    celebrate()
+    haptic("success")
+    endLive()
+    notices = notices.concat([Notice(tag="focus-end", title="", body="", at=0, cancel=true, navigate="")])
+    send wrote = logFocus(focusTask, round((focusTotal - left) / 60000), Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action closeFocus
+    if focusPhase == "done"
+      focusPhase = "idle"
+    nav = back(nav)
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  action openSettings
+    nav = push(nav, "/settings")
+  action settingsNumber(field: string, n: number)
+    pCapacity = n
+  action pickScheme(s: string)
+    schemeChoice = s
+    setScheme(s)
+    haptic("selection")
+  action setLanguage(tag: string)
+    setLocale(tag)
+    haptic("selection")
+  action allowNotifications
+    send notifAsked = requestNotificationPermission()
+  action openSystemSettings
+    openURL("app-settings:")
+  action replayOnboarding
+    nav = open(nav, "/")
+    onboarded = false
+    obStep = 0
+    obAnswered = -1
+  action eraseEverything
+    send wrote = eraseAll(profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+    focusPhase = "idle"
+  action rate
+    requestReview()
+
+  // ── Tools: Siri and Shortcuts ─────────────────────────────────────────────
+  action addFromTool(title: string)
+    send wrote = quickAdd(title, "inbox", profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+  action readToday
+    refresh board
+  action completeFromTool
+    if board.nextId != ""
+      send wrote = toggleTask(board.nextId, profile, Context(now=time.epochAtZero + performanceNow(), offset=time.utcOffset, lang=lang))
+
   view
-    main testId="root" navigationKey=`${top(nav).id}` width="100%" height="100%"
-      for e in stack(nav) key=e.id
-        column navigationKey=`${e.id}` navigationScroll="content" position="absolute" inset=0 display="flex" flex-direction="column"
-          header display="flex" align-items="center"
-            text "Todo List" role="heading" aria-level=1 flex=1
-            button press=like aria-label=(liked ? "Unlike" : "Like") testId="like"
-              image (liked ? "symbol:heart-fill" : "symbol:heart")
-          scroll id="content" flex=1 min-height=0 padding=16
-            text greeting.text testId="greeting"
+    main navigationKey=`${top(nav).id}` navigationBack=(top(nav).name == "capture" ? "capture-cancel" : top(nav).name == "task" ? "detail-back" : top(nav).name == "list" ? "list-back" : top(nav).name == "focus" ? "focus-close" : top(nav).name == "settings" ? "settings-back" : top(nav).name == "newlist" ? "newlist-back" : "") navigate=follow notificationclick=notified testId="root" width="100%" height="100%" display="flex" flex-direction="column"
+      column flex=1 min-height=0 position="relative"
+        for tab in nav.tabs key=tab.name
+          column role="tabpanel" id=`panel-${tab.name}` position="absolute" inset=0
+            for e in tab.stack key=e.id
+              if e.name == "today"
+                if onboarded
+                  TodayScreen(route=`${e.id}`, focusing=(focusPhase == "running" or focusPhase == "paused"), focusPaused=(focusPhase == "paused"), focusTitle=focusTitle, focusTime=focusBarText, openFocus=openRunningFocus, board=board, profile=profile, pending=queued, loading=pending(board), failure=(match failure(board) { case some(f) => f.message, case none => "" }), toggle=toggleTask, open=openTaskScreen, remove=deleteTask, aim=aim, run=runSuggestion, capture=openCapture, voice=openVoice, settings=openSettings, share=shareDay, erase=eraseEverything, reload=reloadBoard, burst=(celebrating ? burst : 0))
+                else
+                  Onboarding(route=`${e.id}`, step=obStep, goingBack=obBack, profile=profile, lang=lang, answered=(obAnswered == obStep), first=pFirst, demo=pDemo, sample=sample, second=second, drafts=demoDrafts, listening=(listening and speechTarget == "demo"), starting=pending(speechStarted), heard=heard, speechError=speechProblem, aiAvailable=aiReady, aiBusy=(pending(aiSession) or pending(aiOut)), aiUsed=demoByAi, plan=plan, summary=planSummary, writing=planWriting, summaryByAi=planByAi, live=liveStarted, liveFailed=(liveUnavailable or (match failure(demoLive) { case some(f) => true, case none => false })), chosenIcon=chosenIcon, iconAvailable=icon.available, denied=(notif.state == "denied" or notifDenied), finishing=finishing, burst=planBurstAt, next=nextStep, prev=prevStep, skip=skipStep, setLang=chooseLanguage, editName=editName, choose=choose, toggle=toggleMulti, number=setNumber, editWake=editWake, editWind=editWind, slide=slideCapacity, editFirst=editFirst, suggest=suggestFirst, editDemo=editDemo, mic=listen("demo"), stopMic=stopListening, example=tryExample, aiSort=sortWithAi("demo"), startLive=startLiveDemo, chooseIcon=chooseIcon, allow=allowFromOnboarding, open=open)
+              else if e.name == "upcoming"
+                UpcomingScreen(route=`${e.id}`, board=board, pending=queued, toggle=toggleTask, open=openTaskScreen, remove=deleteTask, aim=aim, run=runSuggestion, capture=openCapture)
+              else if e.name == "lists"
+                ListsScreen(route=`${e.id}`, board=board, openList=openListScreen, newList=openNewList)
+              else if e.name == "list"
+                ListScreen(route=`${e.id}`, page=listView, pending=queued, toggle=toggleTask, open=openTaskScreen, remove=deleteTask, aim=aim, run=runSuggestion, capture=openListCapture, removeList=deleteList, goBack=goBack)
+              else if e.name == "newlist"
+                NewListScreen(route=`${e.id}`, name=newName, symbolName=newSymbol, color=newColor, editName=editListName, pickSymbol=pickSymbol, pickColor=pickColor, save=saveList, goBack=goBack)
+              else if e.name == "insights"
+                InsightsScreen(route=`${e.id}`, board=board, share=shareDay, focusNext=openNextFocus)
+              else if e.name == "search"
+                SearchScreen(route=`${e.id}`, results=found, query=query, filter=filter, pending=queued, search=editQuery, pick=pickFilter, toggle=toggleTask, open=openTaskScreen, remove=deleteTask, aim=aim, run=runSuggestion)
+              else if e.name == "task"
+                if detail.found and detail.task.id == e.params.id
+                  for d in [detail] key=d.task.id
+                    DetailScreen(route=`${e.id}`, detail=d, lists=board.lists, today=todayKey, saved=saveDetail, focusOn=focusDetail, remove=deleteDetail, toggleDone=toggleDetail, addStep=addStep, toggleStep=toggleStep, removeStep=removeStep, calendar=addToCalendar, flag=flagDetail, goBack=goBack)
+                else if not current(detail)
+                  column navigationKey=`${e.id}` position="absolute" inset=0 display="flex" align-items="center" justify-content="center"
+                    progress aria-label=t("common.loading")
+                else
+                  MissingTask(route=`${e.id}`, goBack=goBack)
+              else if e.name == "capture"
+                CaptureScreen(route=`${e.id}`, text=captureText, mode=captureMode, drafts=captureDrafts, listId=captureList, lists=board.lists, listening=(listening and speechTarget == "capture"), starting=pending(speechStarted), heard=heard, speechError=speechProblem, aiAvailable=aiReady, aiBusy=(pending(aiSession) or pending(aiOut)), aiUsed=captureByAi, saving=pending(wrote), editText=editCapture, pickMode=pickMode, pickList=pickCaptureList, mic=listen("capture"), stopMic=stopListening, aiSort=sortWithAi("capture"), add=saveCapture, cancel=cancelCapture, example=exampleCapture)
+              else if e.name == "focus"
+                FocusScreen(route=`${e.id}`, title=focusTitle, phase=focusPhase, minutes=focusMinutes, leftMs=focusLeft, totalMs=focusTotal, live=focusAlive, pickMinutes=pickMinutes, start=startFocus, pauseSession=pauseFocus, resumeSession=resumeFocus, extend=extendFocus, finish=finishFocus, close=closeFocus, celebrate=pCelebrate, burst=(celebrating ? burst : 0))
+              else if e.name == "settings"
+                SettingsScreen(route=`${e.id}`, profile=profile, name=pName, scheme=schemeChoice, lang=lang, chosenIcon=chosenIcon, iconAvailable=icon.available, notifState=notif.state, aiState=ai.availability, editName=editName, choose=choose, number=settingsNumber, editWake=editWake, editWind=editWind, toggle=toggleMulti, pickScheme=pickScheme, setLang=setLanguage, chooseIcon=chooseIcon, allow=allowNotifications, openSettings=openSystemSettings, replay=replayOnboarding, erase=eraseEverything, open=open, goBack=goBack, review=rate)
+      row role="tablist" display=(onboarded and top(nav).name != "focus" ? "flex" : "none")
+        for tab in nav.tabs key=tab.name
+          button role="tab" aria-controls=`panel-${tab.name}` aria-selected=(nav.tab == tab.name) press=pickTab(tab.name) testId=`tab-${tab.name}` rel=(tab.name == "search" ? "search" : "")
+            image (tab.name == "today" ? "symbol:sf/sun.max.fill" : tab.name == "upcoming" ? "symbol:calendar" : tab.name == "lists" ? "symbol:sf/square.grid.2x2.fill" : tab.name == "insights" ? "symbol:sf/chart.bar.xaxis" : "symbol:search") aria-hidden=true
+            text (tab.name == "today" ? t("tab.today") : tab.name == "upcoming" ? t("tab.upcoming") : tab.name == "lists" ? t("tab.lists") : tab.name == "insights" ? t("tab.insights") : t("tab.search"))
+      if toast != ""
+        row position="absolute" left=16 right=16 bottom="calc(var(--exact-safe-area-inset-bottom) + 76px)" padding="12px 18px" border-radius=999 backgroundMaterial="glass" align-items="center" justify-content="space-between" gap=12 box-shadow="0 10px 30px rgba(0,0,0,0.18)" animation="rise 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both" -exact-exit-animation="leaveFade 220ms ease-in both" pointer-events=(toastUndo ? "auto" : "none") aria-live="polite" testId="toast"
+          row gap=10 align-items="center" flex=1 min-width=0
+            image "symbol:select-fill" aria-hidden=true color="-exact-system-green" -exact-symbol-effect="bounce" symbolEffectValue=`${toastBeat}`
+            text toast font="-exact-subheadline" font-weight=600 testId="toast-text"
+          if toastUndo
+            button press=undoDelete testId="undo" buttonStyle="borderless"
+              text t("common.undo") font-weight=700

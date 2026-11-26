@@ -1,0 +1,447 @@
+// The four tabs' screens and the list page: Today, Upcoming, Lists, Insights
+// and Search.
+
+use Board, Section, TaskRow, Suggestion, ListInfo, ListPage, Search, Profile, Stats, DayBar from "./model.contract"
+use symbol, tint, rise, pop, fade, Card, PressCard from "./theme.contract"
+use TaskLine, SectionTitle, Suggest, Blank, Note from "./parts.contract"
+use SummaryCard, StatBar from "exact:content"
+
+component TodayScreen
+  props
+    route: string
+    board: Board
+    profile: Profile
+    pending: string[]
+    loading: bool
+    failure: string
+    toggle: action
+    open: action
+    remove: action
+    aim: action
+    run: action
+    capture: action
+    voice: action
+    settings: action
+    share: action
+    erase: action
+    reload: action
+    burst: number
+    focusing: bool
+    focusPaused: bool
+    focusTitle: string
+    focusTime: string
+    openFocus: action
+  view
+    column navigationKey=`${route}`  position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        button press=settings aria-label=t("settings.title") testId="open-settings"
+          image "symbol:sf/gearshape.fill"
+        text t("tab.today") role="heading" aria-level=1 flex=1
+        text board.dateLabel
+        button press=share aria-label=t("today.share") testId="share-day"
+          image "symbol:share"
+        button press=capture aria-label=t("capture.add") testId="add-task"
+          image "symbol:add"
+      if failure != ""
+        column gap=12 padding=24 align-items="center" text-align="center" testId="load-error"
+          image "symbol:sf/exclamationmark.triangle.fill" aria-hidden=true font-size=40 color="-exact-system-orange"
+          text t("error.load.title") font="-exact-title3" font-weight=700
+          text t("error.load.body") color="-exact-secondary-label" font="-exact-subheadline"
+          button press=reload buttonStyle="filled" testId="retry"
+            text t("common.retry")
+          button commandfor="erase-confirm" command="show-modal" destructive=true testId="reset-data"
+            text t("settings.erase")
+      else
+        list id="today-list" appearance="auto" listStyle="inset-grouped" flex=1 min-height=0 testId="today-list" refresh=reload
+          section
+            row testId="hero" align-items="center" gap=16
+              lumen-ring width=92 height=92 flex-shrink=0 progress=`${board.stats.ring}` figure=`${board.stats.doneToday}` suffix=`/${board.stats.doneToday + board.stats.dueToday}` aria-label=t("today.ring", done=`${board.stats.doneToday}`, total=`${board.stats.doneToday + board.stats.dueToday}`) role="img"
+              column flex=1 min-width=0 gap=3
+                text board.greeting font="-exact-footnote" font-weight=600 color="-exact-secondary-label" testId="greeting"
+                text board.headline font="-exact-title2" font-weight=700 color="-exact-label" testId="headline"
+                text board.subline font="-exact-subheadline" color="-exact-secondary-label" testId="subline"
+                if board.stats.streak > 0
+                  row gap=5 align-items="center" margin-top=2
+                    image "symbol:sf/flame.fill" aria-hidden=true color="-exact-system-orange" font-size="min(-exact-footnote, 20px)" -exact-symbol-effect="variable-color"
+                    text t("today.streak", n=`${board.stats.streak}`) font="-exact-footnote" font-weight=700 color="-exact-label" testId="streak"
+          if board.suggestions.length > 0
+            section
+              for s in board.suggestions key=s.kind
+                Suggest(item=s, run=run(s.kind, s.taskId))
+          if profile.struggles.includes("overwhelm") and board.top.length > 1
+            section
+              header
+                SectionTitle(icon="square.3.layers.3d.top.filled", color="purple", title=t("today.top3"), count=0)
+              for task, i in board.top key=`top-${task.id}`
+                row press=open(task.id) testId=`top-${i}` align-items="center" gap=12
+                  text `${i + 1}` font="-exact-title2" font-weight=800 font-family="ui-rounded" color="AccentColor" width=24 text-align="center"
+                  text task.title flex=1 min-width=0
+                  image "symbol:forward-chevron" aria-hidden=true
+          for s in board.today key=s.id
+            section
+              header
+                SectionTitle(icon=s.symbol, color=s.tint, title=s.title, count=s.tasks.length)
+              for task in s.tasks key=task.id
+                TaskLine(task=task, checked=(task.done != pending.includes(task.id)), toggle=toggle(task.id), open=open(task.id), remove=remove(task.id), aim=aim(task.id), menu="today-menu")
+          if board.ready and board.today.length == 0
+            section
+              row
+                column width="100%"
+                  Blank(icon=(board.openCount == 0 ? "sparkles" : "sun.max.fill"), title=(board.openCount == 0 ? t("today.empty.title") : t("today.free.title")), body=(board.openCount == 0 ? t("today.empty.body") : t("today.free.body")), cta=t("capture.add"), press=capture)
+          section
+            row
+              button press=voice testId="voice-row" appearance="none" display="flex" align-items="center" gap=12 width="100%" min-height=44 text-align="start"
+                column width=34 height=34 border-radius=17 align-items="center" justify-content="center" background-image="linear-gradient(145deg, #8d6bff, #ff6fa8)"
+                  image "symbol:sf/mic.fill" aria-hidden=true color="night.ink" font-size="min(-exact-subheadline, 22px)"
+                column flex=1 min-width=0
+                  text t("today.voice") font="-exact-body" color="-exact-label"
+                  text t("today.voice.body") font="-exact-caption1" color="-exact-secondary-label"
+                image "symbol:forward-chevron" aria-hidden=true
+      column id="today-menu" popover="auto" role="menu"
+        button press=run("menu-toggle", "") popovertarget="today-menu" popovertargetaction="hide" testId="menu-toggle"
+          image "symbol:select"
+          text t("menu.toggle")
+        button press=run("menu-focus", "") popovertarget="today-menu" popovertargetaction="hide" testId="menu-focus"
+          image "symbol:timer"
+          text t("menu.focus")
+        button press=run("menu-flag", "") popovertarget="today-menu" popovertargetaction="hide" testId="menu-flag"
+          image "symbol:sf/flag"
+          text t("menu.flag")
+        hr
+        button press=run("menu-tonight", "") popovertarget="today-menu" popovertargetaction="hide" testId="menu-tonight"
+          image "symbol:moon"
+          text t("menu.tonight")
+        button press=run("menu-tomorrow", "") popovertarget="today-menu" popovertargetaction="hide" testId="menu-tomorrow"
+          image "symbol:sf/sunrise"
+          text t("menu.tomorrow")
+        button press=run("menu-nextweek", "") popovertarget="today-menu" popovertargetaction="hide" testId="menu-nextweek"
+          image "symbol:calendar"
+          text t("menu.nextweek")
+        hr
+        button press=run("menu-delete", "") destructive=true popovertarget="today-menu" popovertargetaction="hide" testId="menu-delete"
+          image "symbol:delete"
+          text t("menu.delete")
+      dialog id="erase-confirm" role="alertdialog" aria-label=t("settings.erase.confirm")
+        text t("settings.erase.body")
+        button press=erase destructive=true commandfor="erase-confirm" command="close" testId="erase-yes"
+          text t("settings.erase")
+        button commandfor="erase-confirm" command="close"
+          text t("common.cancel")
+      if burst > 0
+        lumen-confetti position="absolute" top=0 left=0 width="100%" height="100%" burst=`${burst}` kind=profile.celebrate aria-hidden=true pointer-events="none"
+      if focusing
+        button press=openFocus testId="focus-banner" appearance="none" position="absolute" left=16 right=16 bottom="calc(var(--exact-safe-area-inset-bottom) + 12px)" display="flex" align-items="center" gap=12 padding="12px 16px" border-radius=22 background-image="linear-gradient(95deg, #3f25c4, #5f40e0 60%, #b93a76 100%)" box-shadow="0 10px 28px rgba(75,47,214,0.45)" animation="rise 420ms both" -exact-press-haptic="impact-light"
+          image (focusPaused ? "symbol:sf/pause.circle.fill" : "symbol:timer") aria-hidden=true color="night.ink" font-size="min(-exact-title2, 30px)" -exact-symbol-effect="pulse"
+          text focusTitle flex=1 min-width=0 color="night.ink" font="-exact-headline" line-clamp=1 text-align="start"
+          text focusTime color="night.ink" font="-exact-title3" font-weight=700 font-variant-numeric="tabular-nums" testId="focus-banner-time"
+
+component WeekStrip
+  props
+    week: DayBar[]
+  view
+    row gap=6 width="100%" align-items="flex-end"
+      for d, i in week key=d.key
+        column flex=1 align-items="center" gap=6 animation=`rise 420ms ${i * 40}ms both`
+          text d.label font-size="min(-exact-caption2, 15px)" color=(d.today ? "-exact-label" : "-exact-secondary-label") font-weight=(d.today ? 700 : 400)
+          column width="100%" max-width=34 height=58 border-radius=10 justify-content="flex-end" background-color="-exact-tertiary-fill" overflow="hidden"
+            view width="100%" height=(d.value == 0 ? 0 : 10 + round(d.ratio * 48)) background-image=(d.today ? "linear-gradient(180deg, #ff6fa8, #7c5cff)" : "linear-gradient(180deg, #a590ff, #7c5cff)") -exact-layout-transition="420ms cubic-bezier(0.2, 0.8, 0.2, 1)"
+          text `${d.value}` font-size="min(-exact-footnote, 17px)" font-weight=600 font-variant-numeric="tabular-nums"
+
+component UpcomingScreen
+  props
+    route: string
+    board: Board
+    pending: string[]
+    toggle: action
+    open: action
+    remove: action
+    aim: action
+    run: action
+    capture: action
+  view
+    column navigationKey=`${route}`  position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        text t("tab.upcoming") role="heading" aria-level=1 flex=1
+        button press=capture aria-label=t("capture.add") testId="upcoming-add"
+          image "symbol:add"
+      list id="upcoming-list" appearance="auto" listStyle="inset-grouped" flex=1 min-height=0 testId="upcoming-list"
+        section
+          header
+            SectionTitle(icon="calendar", color="indigo", title=t("upcoming.week"), count=0)
+          row
+            WeekStrip(week=board.week)
+        for s in board.upcoming key=s.id
+          section
+            header
+              SectionTitle(icon=s.symbol, color=s.tint, title=s.title, count=s.tasks.length)
+            for task in s.tasks key=task.id
+              TaskLine(task=task, checked=(task.done != pending.includes(task.id)), toggle=toggle(task.id), open=open(task.id), remove=remove(task.id), aim=aim(task.id), menu="upcoming-menu")
+        if board.later.length > 0
+          section
+            header
+              SectionTitle(icon="tray.full.fill", color="teal", title=t("upcoming.later"), count=board.later.length)
+            for task in board.later key=task.id
+              TaskLine(task=task, checked=(task.done != pending.includes(task.id)), toggle=toggle(task.id), open=open(task.id), remove=remove(task.id), aim=aim(task.id), menu="upcoming-menu")
+        if board.upcoming.length == 0 and board.later.length == 0
+          section
+            row
+              column width="100%"
+                Blank(icon="calendar", title=t("upcoming.empty.title"), body=t("upcoming.empty.body"), cta=t("capture.add"), press=capture)
+      column id="upcoming-menu" popover="auto" role="menu"
+        button press=run("menu-toggle", "") popovertarget="upcoming-menu" popovertargetaction="hide"
+          image "symbol:select"
+          text t("menu.toggle")
+        button press=run("menu-flag", "") popovertarget="upcoming-menu" popovertargetaction="hide"
+          image "symbol:sf/flag"
+          text t("menu.flag")
+        button press=run("menu-today", "") popovertarget="upcoming-menu" popovertargetaction="hide"
+          image "symbol:sf/sun.max"
+          text t("menu.today")
+        button press=run("menu-tomorrow", "") popovertarget="upcoming-menu" popovertargetaction="hide"
+          image "symbol:sf/sunrise"
+          text t("menu.tomorrow")
+        button press=run("menu-delete", "") destructive=true popovertarget="upcoming-menu" popovertargetaction="hide"
+          image "symbol:delete"
+          text t("menu.delete")
+
+component ListsScreen
+  props
+    route: string
+    board: Board
+    openList: action
+    newList: action
+  view
+    column navigationKey=`${route}`  position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        text t("tab.lists") role="heading" aria-level=1 flex=1
+        button press=newList aria-label=t("lists.new") testId="new-list"
+          image "symbol:sf/folder.badge.plus"
+      scroll id="lists-scroll" flex=1 min-height=0 background-color="-exact-grouped-background"
+        column display="grid" grid-template-columns="repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr))" gap=14 padding=16
+          for l, i in board.lists key=l.id
+            button press=openList(l.id) testId=`list-${l.id}` appearance="none" class=PressCard display="flex" flex-direction="column" gap=18 padding=16 text-align="start" animation=`pop 440ms ${i * 50}ms both` -exact-press-haptic="selection"
+              row justify-content="space-between" align-items="flex-start" width="100%"
+                column width=44 height=44 border-radius=14 align-items="center" justify-content="center" background-color=tint(l.color)
+                  image symbol(l.symbol) aria-hidden=true color="night.ink" font-size="min(-exact-title3, 28px)"
+                text `${l.open}` font="-exact-title1" font-weight=800 font-family="ui-rounded" font-variant-numeric="tabular-nums" color="-exact-label"
+              column gap=8 width="100%"
+                text l.name font="-exact-headline" color="-exact-label"
+                view height=5 border-radius=3 background-color="-exact-tertiary-fill" overflow="hidden" width="100%"
+                  view height=5 border-radius=3 background-color=tint(l.color) width=`${round(l.progress * 100)}%` -exact-layout-transition="520ms ease"
+          button press=newList testId="new-list-card" appearance="none" display="flex" flex-direction="column" align-items="center" justify-content="center" gap=8 padding=16 min-height=132 border-radius=22 border-width=2 border-style="dashed" border-color="-exact-separator" -exact-press-haptic="selection"
+            image "symbol:sf/plus.circle.fill" aria-hidden=true font-size="min(-exact-title1, 36px)" color="AccentColor"
+            text t("lists.new") font="-exact-subheadline" font-weight=600 color="AccentColor"
+
+component ListScreen
+  props
+    route: string
+    page: ListPage
+    pending: string[]
+    toggle: action
+    open: action
+    remove: action
+    aim: action
+    run: action
+    capture: action
+    removeList: action
+    goBack: action
+  view
+    column navigationKey=`${route}`  position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        button id="list-back" press=goBack aria-label=t("common.back") testId="list-back"
+          image "symbol:back"
+        text page.name role="heading" aria-level=2 flex=1
+        if page.removable
+          button popovertarget="list-options" aria-label=t("lists.options") testId="list-options-button"
+            image "symbol:more"
+        button press=capture aria-label=t("capture.add") testId="list-add"
+          image "symbol:add"
+      column id="list-options" popover="auto" role="menu"
+        button commandfor="remove-list" command="show-modal" destructive=true popovertarget="list-options" popovertargetaction="hide" testId="delete-list"
+          image "symbol:delete"
+          text t("lists.delete")
+      list id="list-page" appearance="auto" listStyle="inset-grouped" flex=1 min-height=0 testId="list-page"
+        section
+          row gap=14 align-items="center"
+            column width=52 height=52 border-radius=16 align-items="center" justify-content="center" background-color=tint(page.color)
+              image symbol(page.symbol == "" ? "list.bullet" : page.symbol) aria-hidden=true color="night.ink" font-size="min(-exact-title2, 30px)" -exact-symbol-effect="bounce" symbolEffectValue=page.id
+            column gap=2
+              text page.name font="-exact-title2" font-weight=700
+              text page.summary font="-exact-subheadline" color="-exact-secondary-label" testId="list-summary"
+        if page.open.length > 0
+          section
+            for task in page.open key=task.id
+              TaskLine(task=task, checked=(task.done != pending.includes(task.id)), toggle=toggle(task.id), open=open(task.id), remove=remove(task.id), aim=aim(task.id), menu="list-menu")
+        if page.done.length > 0
+          section
+            header
+              SectionTitle(icon="checkmark.circle.fill", color="green", title=t("lists.done"), count=page.done.length)
+            for task in page.done key=task.id
+              TaskLine(task=task, checked=(task.done != pending.includes(task.id)), toggle=toggle(task.id), open=open(task.id), remove=remove(task.id), aim=aim(task.id), menu="list-menu")
+        if page.found and page.open.length == 0 and page.done.length == 0
+          section
+            row
+              column width="100%"
+                Blank(icon="tray", title=t("lists.empty.title"), body=t("lists.empty.body"), cta=t("capture.add"), press=capture)
+      column id="list-menu" popover="auto" role="menu"
+        button press=run("menu-toggle", "") popovertarget="list-menu" popovertargetaction="hide"
+          image "symbol:select"
+          text t("menu.toggle")
+        button press=run("menu-flag", "") popovertarget="list-menu" popovertargetaction="hide"
+          image "symbol:sf/flag"
+          text t("menu.flag")
+        button press=run("menu-today", "") popovertarget="list-menu" popovertargetaction="hide"
+          image "symbol:sf/sun.max"
+          text t("menu.today")
+        button press=run("menu-delete", "") destructive=true popovertarget="list-menu" popovertargetaction="hide"
+          image "symbol:delete"
+          text t("menu.delete")
+      dialog id="remove-list" role="alertdialog" aria-label=t("lists.delete.confirm", name=page.name)
+        text t("lists.delete.body")
+        button press=removeList destructive=true commandfor="remove-list" command="close" testId="delete-list-yes"
+          text t("menu.delete")
+        button commandfor="remove-list" command="close"
+          text t("common.cancel")
+
+component NewListScreen
+  props
+    route: string
+    name: string
+    symbolName: string
+    color: string
+    editName: action
+    pickSymbol: action
+    pickColor: action
+    save: action
+    goBack: action
+  view
+    column navigationKey=`${route}` navigationPresentation="modal" position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        button id="newlist-back" press=goBack aria-label=t("common.cancel") testId="newlist-cancel"
+          image "symbol:close"
+        text t("lists.new") role="heading" aria-level=2 flex=1
+        button press=save buttonStyle="bordered-prominent" disabled=(name.trim() == "") aria-label=t("common.save") testId="newlist-save"
+          image "symbol:checkmark"
+      list id="newlist-form" appearance="auto" listStyle="inset-grouped" flex=1 min-height=0
+        section
+          row align-items="center" justify-content="center"
+            column width="100%" align-items="center" padding=8 gap=12
+              column width=88 height=88 border-radius=28 align-items="center" justify-content="center" background-color=tint(color) transition="background-color 260ms ease"
+                image symbol(symbolName) aria-hidden=true color="night.ink" font-size=40 -exact-symbol-effect="replace"
+          row
+            input value=name input=editName submit=save placeholder=t("lists.name") aria-label=t("lists.name") maxlength=30 autofocus=true flex=1 min-width=0 testId="newlist-name"
+        section
+          row
+            column display="grid" grid-template-columns="1fr 1fr 1fr 1fr 1fr 1fr" gap=10 width="100%" padding="6px 0px"
+              for s in ["list.bullet", "star.fill", "bookmark.fill", "airplane", "cart.fill", "dumbbell.fill", "book.fill", "pawprint.fill", "leaf.fill", "gift.fill", "lightbulb.fill", "music.note"] key=s
+                button press=pickSymbol(s) testId=`symbol-${s}` aria-label=s aria-pressed=(symbolName == s) appearance="none" height=44 border-radius=14 background-color=(symbolName == s ? "AccentColor" : "-exact-tertiary-fill") display="flex" align-items="center" justify-content="center" -exact-press-haptic="selection" transition="background-color 200ms ease, scale -exact-spring(400, 20, 1)"
+                  image symbol(s) aria-hidden=true color=(symbolName == s ? "night.ink" : "-exact-label")
+        section
+          row justify-content="space-between"
+            for c in ["blue", "indigo", "purple", "pink", "red", "orange", "green", "teal"] key=c
+              button press=pickColor(c) testId=`color-${c}` aria-label=c aria-pressed=(color == c) appearance="none" width=34 height=34 border-radius=17 background-color=tint(c) display="flex" align-items="center" justify-content="center" -exact-press-haptic="selection"
+                if color == c
+                  image "symbol:checkmark" aria-hidden=true color="night.ink" font-size="min(-exact-footnote, 20px)" animation="pop 260ms both"
+
+component InsightsScreen
+  props
+    route: string
+    board: Board
+    share: action
+    focusNext: action
+  view
+    column navigationKey=`${route}`  position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" align-items="center"
+        text t("tab.insights") role="heading" aria-level=1 flex=1
+        button press=share aria-label=t("insights.share") testId="share-week"
+          image "symbol:share"
+      scroll id="insights-scroll" flex=1 min-height=0 background-color="-exact-grouped-background"
+        column gap=14 padding=16
+          column gap=6 padding=22 border-radius=28 background-image="linear-gradient(140deg, #3f25c4 0%, #5f40e0 55%, #b93a76 100%)" animation="pop 520ms both" testId="streak-card"
+            row gap=10 align-items="center"
+              image "symbol:sf/flame.fill" aria-hidden=true color="amber" font-size=34 -exact-symbol-effect="variable-color"
+              text t("insights.streak") font="-exact-headline" color="night.ink"
+            text `${board.stats.streak}` font-size=72 line-height=1.18 font-weight=800 font-family="ui-rounded" color="night.ink" font-variant-numeric="tabular-nums" testId="streak-days"
+            text (board.stats.streak == 1 ? t("insights.day") : t("insights.days")) font="-exact-subheadline" color="night.ink"
+          column class=Card padding=18 gap=14 animation="rise 480ms 80ms both"
+            row justify-content="space-between" align-items="center"
+              text t("insights.week") font="-exact-headline"
+              text t("insights.done.n", n=`${board.stats.weekDone}`) font="-exact-subheadline" color="-exact-secondary-label" testId="week-done"
+            row gap=8 align-items="flex-end" height=150
+              for d, i in board.stats.bars key=d.key
+                column flex=1 height="100%" justify-content="flex-end" align-items="center" gap=6
+                  text (d.value == 0 ? "" : `${d.value}`) font-size="min(-exact-caption2, 15px)" color="-exact-secondary-label"
+                  view width="100%" max-width=30 border-radius=8 height=(8 + round(d.ratio * 100)) background-image=(d.value == 0 ? "linear-gradient(180deg, rgba(124,92,255,0.18), rgba(124,92,255,0.18))" : d.today ? "linear-gradient(180deg, #ff6fa8, #7c5cff)" : "linear-gradient(180deg, #a590ff, #5a46e0)") animation=`rise 560ms ${150 + i * 60}ms both`
+                  text d.label font-size="min(-exact-caption2, 15px)" font-weight=(d.today ? 700 : 400) color=(d.today ? "-exact-label" : "-exact-secondary-label")
+          column display="grid" grid-template-columns="repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr))" gap=14
+            column class=Card padding=16 gap=8 align-items="flex-start" animation="rise 480ms 140ms both"
+              image "symbol:sf/target" aria-hidden=true color="-exact-system-green" font-size="min(-exact-title2, 30px)"
+              text formatNumber(board.stats.rate, "percent") font="-exact-title1" font-weight=800 font-family="ui-rounded" testId="rate"
+              text t("insights.rate") font="-exact-caption1" color="-exact-secondary-label"
+            column class=Card padding=16 gap=8 align-items="flex-start" animation="rise 480ms 200ms both"
+              image "symbol:timer" aria-hidden=true color="-exact-system-orange" font-size="min(-exact-title2, 30px)"
+              text `${board.stats.focusMinutes}` font="-exact-title1" font-weight=800 font-family="ui-rounded" testId="focus-minutes"
+              text t("insights.focus", n=`${board.stats.focusSessions}`) font="-exact-caption1" color="-exact-secondary-label"
+            column class=Card padding=16 gap=8 align-items="flex-start" animation="rise 480ms 260ms both"
+              image "symbol:sf/checkmark.seal.fill" aria-hidden=true color="-exact-system-blue" font-size="min(-exact-title2, 30px)"
+              text `${board.stats.totalDone}` font="-exact-title1" font-weight=800 font-family="ui-rounded" testId="total-done"
+              text t("insights.total") font="-exact-caption1" color="-exact-secondary-label"
+            column class=Card padding=16 gap=8 align-items="flex-start" animation="rise 480ms 320ms both"
+              image "symbol:star-fill" aria-hidden=true color="-exact-system-purple" font-size="min(-exact-title2, 30px)"
+              text (board.stats.bestDay == "" ? "—" : board.stats.bestDay) font="-exact-title2" font-weight=800 font-family="ui-rounded" testId="best-day"
+              text t("insights.best") font="-exact-caption1" color="-exact-secondary-label"
+          row class=Card padding=18 gap=12 align-items="flex-start" animation="rise 480ms 380ms both"
+            image "symbol:sf/lightbulb.max.fill" aria-hidden=true color="-exact-system-yellow" font-size="min(-exact-title2, 30px)" -exact-symbol-effect="pulse"
+            text board.stats.insight flex=1 font="-exact-body" testId="insight"
+          if board.nextId != ""
+            button press=focusNext buttonStyle="filled" testId="insights-focus"
+              image "symbol:timer"
+              text t("insights.focus.next")
+
+component SearchScreen
+  props
+    route: string
+    results: Search
+    query: string
+    filter: string
+    pending: string[]
+    search: action
+    pick: action
+    toggle: action
+    open: action
+    remove: action
+    aim: action
+    run: action
+  view
+    column navigationKey=`${route}`  position="absolute" inset=0 display="flex" flex-direction="column"
+      header display="flex" flex-wrap="wrap" align-items="center" gap=8
+        text t("tab.search") role="heading" aria-level=1 flex=1
+        input type="search" value=query input=search placeholder=t("search.placeholder") aria-label=t("search.placeholder") testId="search" width="100%"
+      list id="search-list" appearance="auto" listStyle="inset-grouped" flex=1 min-height=0 testId="search-list"
+        section
+          row
+            row role="radiogroup" aria-label=t("search.filter") width="100%"
+              for f in ["all", "open", "flagged", "high", "done"] key=f
+                button role="radio" aria-checked=(filter == f) press=pick(f) testId=`filter-${f}` flex=1 min-width=0
+                  text (f == "all" ? t("filter.all") : f == "open" ? t("filter.open") : f == "flagged" ? t("filter.flagged") : f == "high" ? t("filter.high") : t("filter.done")) font-size="min(-exact-footnote, 17px)"
+        if results.tasks.length > 0
+          section
+            for task in results.tasks key=task.id
+              TaskLine(task=task, checked=(task.done != pending.includes(task.id)), toggle=toggle(task.id), open=open(task.id), remove=remove(task.id), aim=aim(task.id), menu="search-menu")
+            footer
+              text results.summary testId="search-summary"
+        else
+          section
+            row
+              column width="100%"
+                Note(icon="magnifyingglass", title=(query == "" ? t("search.empty.title") : t("search.none.title")), body=(query == "" ? t("search.empty.body") : t("search.none.body")))
+      column id="search-menu" popover="auto" role="menu"
+        button press=run("menu-toggle", "") popovertarget="search-menu" popovertargetaction="hide"
+          image "symbol:select"
+          text t("menu.toggle")
+        button press=run("menu-flag", "") popovertarget="search-menu" popovertargetaction="hide"
+          image "symbol:sf/flag"
+          text t("menu.flag")
+        button press=run("menu-delete", "") destructive=true popovertarget="search-menu" popovertargetaction="hide"
+          image "symbol:delete"
+          text t("menu.delete")

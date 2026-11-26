@@ -1,0 +1,103 @@
+// The pieces every list shares: a task's row, its long-press menu, section
+// headings, suggestions and empty states.
+
+use TaskRow, Suggestion from "./model.contract"
+use symbol, tint, priorityTint, rise, pop, PressCard from "./theme.contract"
+
+style Checkmark
+  transition = "scale -exact-spring(500, 18, 1)"
+  :active
+    -exact-press-scale = 0.8
+
+// A checklist row as Reminders draws one: the circle completes, the text opens,
+// a swipe deletes, a long press offers the rest.
+component TaskLine
+  props
+    task: TaskRow
+    checked: bool
+    toggle: action
+    open: action
+    remove: action
+    aim: action
+    menu: string
+  view
+    row delete=remove contextmenu=aim contextPopover=menu testId=`task-${task.id}` align-items="center" gap=12
+      button press=toggle appearance="none" testId=`check-${task.id}` role="checkbox" aria-checked=checked aria-label=t("task.complete", title=task.title) width=30 height=30 flex-shrink=0 -exact-hit-slop=7 display="flex" align-items="center" justify-content="center" -exact-press-haptic="impact-light" class=Checkmark
+        image (checked ? "symbol:select-fill" : "symbol:circle") aria-hidden=true font-size=25 color=(checked ? "-exact-system-green" : priorityTint(task.priority)) -exact-symbol-effect="replace"
+      button press=open appearance="none" flex=1 min-width=0 min-height=44 display="flex" flex-direction="column" justify-content="center" text-align="start" testId=`open-${task.id}`
+        column gap=3
+          text task.title font="-exact-body" color=(checked ? "-exact-secondary-label" : "-exact-label") text-decoration=(checked ? "line-through" : "none") testId=`title-${task.id}`
+          if task.dueLabel != "" or task.meta != "" or task.notes != ""
+            row gap=6 align-items="center" flex-wrap="wrap"
+              if task.dueLabel != ""
+                row gap=3 align-items="center"
+                  image (task.reminder ? "symbol:notifications-fill" : "symbol:calendar") aria-hidden=true font-size="min(-exact-caption2, 16px)" color=(task.overdue ? "-exact-system-red" : "-exact-secondary-label")
+                  text task.dueLabel font="-exact-caption1" color=(task.overdue ? "-exact-system-red" : "-exact-secondary-label")
+              if task.repeat != "none"
+                image "symbol:repeat" aria-label=t("task.repeats") font-size="min(-exact-caption2, 16px)" color="-exact-secondary-label"
+              if task.notes != ""
+                image "symbol:sf/note.text" aria-label=t("task.hasnotes") font-size="min(-exact-caption2, 16px)" color="-exact-secondary-label"
+              if task.meta != ""
+                text task.meta font="-exact-caption1" color="-exact-secondary-label"
+      if task.flagged
+        image "symbol:sf/flag.fill" aria-label=t("task.flagged") font-size="min(-exact-footnote, 20px)" color="-exact-system-orange" animation="pop 300ms both"
+      if task.priority >= 3 and not checked
+        image "symbol:sf/exclamationmark.3" aria-label=t("priority.high") font-size="min(-exact-footnote, 20px)" color="-exact-system-red"
+      view width=8 height=8 border-radius=4 background-color=tint(task.listColor) flex-shrink=0 aria-hidden=true
+
+component SectionTitle
+  props
+    icon: string
+    color: string
+    title: string
+    count: number
+  view
+    row gap=6 align-items="center"
+      image symbol(icon) aria-hidden=true color=tint(color) font-size="min(-exact-footnote, 20px)"
+      text title font="-exact-headline" color="-exact-label" text-transform="none"
+      if count > 0
+        text `${count}` font="-exact-footnote" color="-exact-secondary-label" font-variant-numeric="tabular-nums"
+
+component Suggest
+  props
+    item: Suggestion
+    run: action
+  view
+    row gap=12 align-items="flex-start" testId=`suggest-${item.kind}` animation="rise 420ms both"
+      column width=40 height=40 border-radius=12 align-items="center" justify-content="center" background-color=tint(item.tint) flex-shrink=0
+        image symbol(item.symbol) aria-hidden=true color="night.ink" font-size="min(-exact-title3, 28px)" -exact-symbol-effect="bounce" symbolEffectValue=item.title
+      column flex=1 min-width=0 gap=6
+        text item.title font="-exact-headline"
+        text item.body font="-exact-subheadline" color="-exact-secondary-label"
+        button press=run testId=`suggest-run-${item.kind}` buttonStyle="tinted" align-self="flex-start"
+          text item.action
+
+component Blank
+  props
+    icon: string
+    title: string
+    body: string
+    cta: string
+    press: action
+  view
+    column gap=12 align-items="center" padding="36px 24px" text-align="center" animation="rise 480ms both" testId="blank"
+      column width=84 height=84 border-radius=28 align-items="center" justify-content="center" background-color="-exact-tertiary-fill"
+        image symbol(icon) aria-hidden=true font-size=38 color="AccentColor" -exact-symbol-effect="breathe"
+      text title font="-exact-title2" font-weight=700 role="heading" aria-level=2
+      text body font="-exact-subheadline" color="-exact-secondary-label" max-width="19rem"
+      if cta != ""
+        button press=press buttonStyle="filled" testId="blank-cta"
+          text cta
+
+// An empty state with nothing to press.
+component Note
+  props
+    icon: string
+    title: string
+    body: string
+  view
+    column gap=12 align-items="center" padding="36px 24px" text-align="center" animation="rise 480ms both" testId="blank"
+      column width=84 height=84 border-radius=28 align-items="center" justify-content="center" background-color="-exact-tertiary-fill"
+        image symbol(icon) aria-hidden=true font-size=38 color="AccentColor" -exact-symbol-effect="breathe"
+      text title font="-exact-title2" font-weight=700 role="heading" aria-level=2
+      text body font="-exact-subheadline" color="-exact-secondary-label" max-width="19rem"

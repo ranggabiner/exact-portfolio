@@ -1,0 +1,130 @@
+// The onboarding frame: night aurora, progress by chapter, the step's content
+// sliding in and out, and the one action at the bottom. Twenty-three steps:
+// welcome, three problems, thirteen questions, three previews, plan, icon,
+// permission.
+
+use Profile, Draft, Plan from "./model.contract"
+use slideIn, slideBack, leaveLeft, leaveRight, leaveFade, fade, rise from "./theme.contract"
+use ObWelcome, ObLoops, ObPings, ObPlans from "./onboarding-intro.contract"
+use ObAbout, ObRhythm, ObStyle from "./onboarding-quiz.contract"
+use ObDemo, ObFit, ObEverywhere, ObPlan, ObIcon, ObPermission from "./onboarding-preview.contract"
+
+fn chapterStart(c: number): number = c == 0 ? 1 : c == 1 ? 4 : c == 2 ? 8 : c == 3 ? 12 : c == 4 ? 17 : 20
+fn chapterSize(c: number): number = c == 0 ? 3 : c == 1 ? 4 : c == 2 ? 4 : c == 3 ? 5 : c == 4 ? 3 : 3
+fn chapterFill(step: number, c: number): string = `${round(100 * max(0, min(1, (step - chapterStart(c) + 1) / chapterSize(c))))}%`
+fn mood(step: number): string = step == 0 ? "dawn" : step < 4 ? "dusk" : step < 8 ? "violet" : step < 12 ? "calm" : step < 17 ? "rose" : step < 20 ? "focus" : step == 20 ? "celebrate" : "violet"
+fn skippable(step: number): bool = (step >= 4 and step <= 17) or step == 21 or step == 22
+
+component Onboarding
+  props
+    route: string
+    step: number
+    goingBack: bool
+    profile: Profile
+    lang: string
+    answered: bool
+    first: string
+    demo: string
+    sample: string
+    second: string
+    drafts: Draft[]
+    listening: bool
+    starting: bool
+    heard: string
+    speechError: string
+    aiAvailable: bool
+    aiBusy: bool
+    aiUsed: bool
+    plan: Plan
+    summary: string
+    writing: bool
+    summaryByAi: bool
+    live: bool
+    liveFailed: bool
+    chosenIcon: string
+    iconAvailable: bool
+    denied: bool
+    finishing: bool
+    burst: number
+    next: action
+    prev: action
+    skip: action
+    setLang: action
+    editName: action
+    choose: action
+    toggle: action
+    number: action
+    editWake: action
+    editWind: action
+    slide: action
+    editFirst: action
+    suggest: action
+    editDemo: action
+    mic: action
+    stopMic: action
+    example: action
+    aiSort: action
+    startLive: action
+    chooseIcon: action
+    allow: action
+    open: action
+  action primary
+    if step == 22
+      allow()
+    else
+      next()
+  view
+    column navigationKey=`${route}` navigationBar="none" -exact-safe-area="none" position="absolute" inset=0 color-scheme="dark" background-color="night" status-bar-style="light-content" testId="onboarding" overflow="hidden"
+      lumen-aurora position="absolute" top=0 left=0 width="100%" height="100%" palette=mood(step) aria-hidden=true
+      column position="relative" flex=1 min-height=0 height="100%" box-sizing="border-box" padding-top="calc(var(--exact-safe-area-inset-top) + 4px)" padding-bottom="calc(var(--exact-safe-area-inset-bottom) + 8px)"
+        row min-height=44 padding="0px 16px" align-items="center" gap=12 flex-shrink=0
+          if step > 0
+            button press=prev testId="ob-back" aria-label=t("common.back") appearance="none" width=36 height=36 border-radius=18 backgroundMaterial="ultra-thin-dark" display="flex" align-items="center" justify-content="center" -exact-press-haptic="impact-light" animation="fade 300ms both"
+              image "symbol:back" aria-hidden=true color="night.ink" font-size="min(-exact-subheadline, 22px)"
+            row flex=1 gap=4 align-items="center" role="progressbar" aria-label=t("ob.progress") aria-valuenow=step aria-valuemin=0 aria-valuemax=22
+              for c in range(6) key=`${c}`
+                view flex=1 height=5 border-radius=3 background-color="night.track" overflow="hidden"
+                  view height=5 border-radius=3 width=chapterFill(step, c) background-image="linear-gradient(90deg, #8d6bff, #ff6fa8)" -exact-layout-transition="520ms cubic-bezier(0.2, 0.8, 0.2, 1)"
+            if skippable(step)
+              button press=skip testId="ob-skip" appearance="none" padding="8px 6px" -exact-press-haptic="selection"
+                text (step == 22 ? t("common.notnow") : t("common.skip")) font-size="min(-exact-subheadline, 22px)" font-weight=600 color="night.muted"
+            else
+              view width=36 aria-hidden=true
+        scroll flex=1 min-height=0 testId="ob-scroll" keyboardDismissMode="on-drag"
+          column position="relative" padding="14px 20px 24px"
+            for s in [step] key=`step-${s}`
+              column gap=18 testId=`ob-step-${s}` animation=(s == 0 and not goingBack ? "none" : goingBack ? "slideBack 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both" : "slideIn 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both") -exact-exit-animation=(goingBack ? "leaveRight 180ms ease-in both" : "leaveLeft 180ms ease-in both")
+                if s == 0
+                  ObWelcome(lang=lang, setLang=setLang)
+                else if s == 1
+                  ObLoops(open=open)
+                else if s == 2
+                  ObPings(open=open)
+                else if s == 3
+                  ObPlans(open=open)
+                else if s < 8
+                  ObAbout(step=s, profile=profile, answered=answered, name=profile.name, editName=editName, choose=choose, toggle=toggle, next=next, open=open)
+                else if s < 12
+                  ObRhythm(step=s, profile=profile, answered=answered, choose=choose, number=number, editWake=editWake, editWind=editWind, slide=slide, open=open)
+                else if s < 17
+                  ObStyle(step=s, profile=profile, answered=answered, first=first, choose=choose, editFirst=editFirst, suggest=suggest, open=open)
+                else if s == 17
+                  ObDemo(demo=demo, drafts=drafts, listening=listening, starting=starting, heard=heard, speechError=speechError, aiAvailable=aiAvailable, aiBusy=aiBusy, aiUsed=aiUsed, editDemo=editDemo, mic=mic, stopMic=stopMic, example=example, aiSort=aiSort)
+                else if s == 18
+                  ObFit(profile=profile, sample=sample)
+                else if s == 19
+                  ObEverywhere(profile=profile, sample=sample, second=second, live=live, liveFailed=liveFailed, startLive=startLive)
+                else if s == 20
+                  ObPlan(plan=plan, summary=summary, writing=writing, aiUsed=summaryByAi)
+                else if s == 21
+                  ObIcon(chosen=chosenIcon, available=iconAvailable, chooseIcon=chooseIcon)
+                else
+                  ObPermission(profile=profile, lang=lang, denied=denied)
+        column padding="10px 20px 4px" flex-shrink=0 gap=6
+          button press=primary disabled=finishing testId="ob-next" appearance="none" height=56 border-radius=28 background-image="linear-gradient(95deg, #5a3adf 0%, #7142e2 55%, #b93a76 100%)" box-shadow="0 14px 34px rgba(124,92,255,0.45)" display="flex" align-items="center" justify-content="center" gap=8 -exact-press-haptic="impact-medium" transition="scale -exact-spring(420, 24, 1), opacity 200ms ease" opacity=(finishing ? 0.6 : 1)
+            text (step == 0 ? t("cta.start") : step == 17 ? t("cta.demo") : step == 20 ? t("cta.plan") : step == 22 ? (profile.reminders == "none" or denied ? t("cta.open") : t("cta.allow")) : t("cta.continue")) font-size="min(-exact-headline, 26px)" font-weight=600 color="night.ink" testId="ob-next-label"
+            image (step == 22 ? "symbol:notifications-fill" : "symbol:sf/arrow.forward") aria-hidden=true color="night.ink" font-size="min(-exact-headline, 24px)" -exact-symbol-effect="replace"
+          if step == 0
+            text t("ob.welcome.foot") font-size="min(-exact-caption1, 17px)" color="night.faint" text-align="center" animation="fade 900ms 800ms both"
+      if burst > 0 and (step == 14 or step == 20)
+        lumen-confetti position="absolute" top=0 left=0 width="100%" height="100%" burst=`${burst}` kind=profile.celebrate aria-hidden=true pointer-events="none"

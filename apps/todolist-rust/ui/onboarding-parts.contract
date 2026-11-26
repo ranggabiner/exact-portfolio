@@ -1,0 +1,75 @@
+// The onboarding's building blocks: night-palette cards, headlines that arrive a
+// word at a time, sourced facts and choices that answer the hand.
+
+use symbol, rise, pop, drop, fade, NightCard, NightCardOn from "./theme.contract"
+
+component Headline
+  props
+    title: string
+    detail: string
+  view
+    column gap=10
+      row flex-wrap="wrap" column-gap=8 role="heading" aria-level=1 aria-label=title
+        // exact-accept lower-key-position
+        for w, i in title.split(" ") key=`${i}-${w}`
+          text w aria-hidden=true font="-exact-large-title" font-family="ui-serif" font-weight=700 color="night.ink" animation=`rise 560ms ${i * 50}ms both`
+      if detail != ""
+        text detail font="-exact-body" color="night.muted" animation="rise 560ms 240ms both"
+
+component Option
+  props
+    id: string
+    icon: string
+    title: string
+    detail: string
+    on: bool
+    index: number
+    pick: action
+  view
+    button press=pick testId=id aria-pressed=on -exact-press-haptic="selection" appearance="none" class=(on ? NightCardOn : NightCard) display="flex" align-items="center" gap=14 padding=14 text-align="start" animation=`rise 480ms ${200 + index * 55}ms both`
+      column width=44 height=44 border-radius=14 flex-shrink=0 align-items="center" justify-content="center" background-color=(on ? "iris" : "night.chip") transition="background-color 240ms ease"
+        image symbol(icon) aria-hidden=true font-size="min(-exact-title3, 28px)" color="night.ink" -exact-symbol-effect="bounce" symbolEffectValue=(on ? "on" : "off")
+      column flex=1 min-width=0 gap=2
+        text title font-size="min(-exact-headline, 24px)" font-weight=600 color="night.ink" hyphens="auto"
+        if detail != ""
+          text detail font="-exact-footnote" color="night.muted"
+      image (on ? "symbol:select-fill" : "symbol:circle") aria-hidden=true font-size="min(-exact-title2, 30px)" color=(on ? "night.ink" : "night.faint") -exact-symbol-effect="replace"
+
+component Tile
+  props
+    id: string
+    icon: string
+    title: string
+    on: bool
+    index: number
+    pick: action
+  view
+    button press=pick testId=id aria-pressed=on -exact-press-haptic="selection" appearance="none" class=(on ? NightCardOn : NightCard) display="flex" flex-direction="column" align-items="flex-start" gap=14 padding=14 text-align="start" animation=`pop 420ms ${180 + index * 45}ms both`
+      row width="100%" justify-content="space-between" align-items="center"
+        image symbol(icon) aria-hidden=true font-size="min(-exact-title2, 30px)" color="night.ink" -exact-symbol-effect="bounce" symbolEffectValue=(on ? "on" : "off")
+        image (on ? "symbol:select-fill" : "symbol:circle") aria-hidden=true font-size="min(-exact-body, 24px)" color=(on ? "night.ink" : "night.faint") -exact-symbol-effect="replace"
+      text title font="-exact-headline" color="night.ink"
+
+component Fact
+  props
+    body: string
+    source: string
+    url: string
+    open: action
+  view
+    column gap=8 padding=16 border-radius=20 backgroundMaterial="ultra-thin-dark" animation="drop 560ms 260ms both" testId="fact"
+      row gap=8 align-items="center"
+        image "symbol:sparkles" aria-hidden=true color="amber" -exact-symbol-effect="variable-color"
+        text t("ob.didyouknow") font="-exact-footnote" font-weight=700 color="amber" text-transform="uppercase" letter-spacing=0.6
+      text body font="-exact-subheadline" color="night.ink"
+      button press=open(url) appearance="none" display="flex" align-items="center" gap=4 align-self="flex-start" padding="4px 0px" testId="fact-source"
+        text source font="-exact-caption1" color="night.muted" text-decoration="underline"
+        image "symbol:sf/arrow.up.right" aria-hidden=true font-size="min(-exact-caption2, 16px)" color="night.muted"
+
+component Why
+  props
+    body: string
+  view
+    row gap=8 align-items="flex-start" animation="fade 600ms 520ms both"
+      image "symbol:info-fill" aria-hidden=true font-size="min(-exact-footnote, 20px)" color="night.faint"
+      text body font="-exact-footnote" color="night.faint" flex=1

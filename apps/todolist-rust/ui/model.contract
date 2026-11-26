@@ -1,0 +1,247 @@
+// Lumen's view models. The Rust data module (data/src) builds each of these;
+// `contract rust` turns them into the structs it fills, so a field added here is
+// a compile error there.
+
+shape Time
+  epochAtZero: number
+  utcOffset: number
+  resolvedLocale: string
+  timeZone: string
+
+shape Profile
+  name: string
+  role: string
+  struggles: string[]
+  areas: string[]
+  peak: string
+  wake: string
+  wind: string
+  capacity: number
+  focus: number
+  capture: string
+  reminders: string
+  celebrate: string
+  weekly: string
+
+shape Context
+  now: number
+  offset: number
+  lang: string
+
+shape TaskRow
+  id: string
+  title: string
+  notes: string
+  listId: string
+  listName: string
+  listSymbol: string
+  listColor: string
+  due: string
+  time: string
+  dueLabel: string
+  meta: string
+  overdue: bool
+  priority: number
+  flagged: bool
+  done: bool
+  repeat: string
+  subDone: number
+  subTotal: number
+  estimate: number
+  reminder: bool
+
+shape Section
+  id: string
+  title: string
+  symbol: string
+  tint: string
+  tasks: TaskRow[]
+
+shape ListInfo
+  id: string
+  name: string
+  symbol: string
+  color: string
+  open: number
+  done: number
+  progress: number
+  removable: bool
+
+shape DayBar
+  key: string
+  label: string
+  value: number
+  ratio: number
+  today: bool
+
+shape Stats
+  doneToday: number
+  dueToday: number
+  goal: number
+  ring: number
+  streak: number
+  weekDone: number
+  totalDone: number
+  focusMinutes: number
+  focusSessions: number
+  rate: number
+  bars: DayBar[]
+  bestDay: string
+  insight: string
+
+shape Suggestion
+  kind: string
+  title: string
+  body: string
+  symbol: string
+  tint: string
+  taskId: string
+  action: string
+
+shape SpotEntry
+  id: string
+  title: string
+  detail: string
+
+shape Board
+  ready: bool
+  error: string
+  greeting: string
+  dateLabel: string
+  headline: string
+  subline: string
+  today: Section[]
+  upcoming: Section[]
+  later: TaskRow[]
+  lists: ListInfo[]
+  stats: Stats
+  top: TaskRow[]
+  suggestions: Suggestion[]
+  openCount: number
+  nextId: string
+  nextTitle: string
+  spotlight: SpotEntry[]
+  allClear: bool
+  week: DayBar[]
+  share: string
+
+shape Search
+  tasks: TaskRow[]
+  summary: string
+
+shape ListPage
+  found: bool
+  id: string
+  name: string
+  symbol: string
+  color: string
+  open: TaskRow[]
+  done: TaskRow[]
+  removable: bool
+  summary: string
+
+shape SubRow
+  id: string
+  title: string
+  done: bool
+
+shape Detail
+  found: bool
+  task: TaskRow
+  subtasks: SubRow[]
+  created: string
+
+shape Draft
+  title: string
+  due: string
+  time: string
+  priority: number
+  listId: string
+  listName: string
+  listSymbol: string
+  listColor: string
+  repeat: string
+  estimate: number
+  label: string
+
+shape Preview
+  drafts: Draft[]
+  hint: string
+
+shape AiTask
+  title: string
+  when: string
+  priority: string
+
+shape AiCapture
+  tasks: AiTask[]
+
+shape TaskEdit
+  id: string
+  title: string
+  notes: string
+  listId: string
+  due: string
+  time: string
+  priority: number
+  repeat: string
+  reminder: bool
+  estimate: number
+
+shape Notice
+  tag: string
+  title: string
+  body: string
+  at: number
+  cancel: bool
+  navigate: string
+
+shape Reply
+  ok: bool
+  message: string
+  id: string
+  celebrate: bool
+  completed: bool
+  undoable: bool
+  count: number
+  notices: Notice[]
+
+shape PlanRow
+  id: string
+  symbol: string
+  tint: string
+  title: string
+  body: string
+
+shape Plan
+  title: string
+  summary: string
+  prompt: string
+  rows: PlanRow[]
+  lists: ListInfo[]
+
+shape FocusState
+  title: string
+  list: string
+  startedAt: number
+  endsAt: number
+  minutes: number
+
+shape WidgetRow
+  title: string
+  time: string
+  done: bool
+
+shape WidgetProps
+  day: string
+  headline: string
+  done: number
+  total: number
+  ratio: number
+  rows: WidgetRow[]
+  more: number
+  empty: string
+
+shape WidgetEntry
+  date: number
+  props: WidgetProps

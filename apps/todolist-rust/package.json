@@ -5,5 +5,14 @@
     "build": "bun exact.mjs web-build --out dist",
     "start": "bun exact.mjs serve dist"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@exact/language-model": "file:.exact/checkout/packages/language-model",
+    "@exact/speech-recognition": "file:.exact/checkout/packages/speech-recognition",
+    "@exact/notifications": "file:.exact/checkout/packages/notifications",
+    "@exact/search-index": "file:.exact/checkout/packages/search-index",
+    "@exact/quick-actions": "file:.exact/checkout/packages/quick-actions",
+    "@exact/app-icon": "file:.exact/checkout/packages/app-icon",
+    "@exact/store-review": "file:.exact/checkout/packages/store-review",
+    "@exact/calendar": "file:.exact/checkout/packages/calendar"
+  }
 }
