@@ -1,0 +1,34 @@
+{
+  "host": {
+    "web": {},
+    "ios": {
+      "minimumOS": "17.0",
+      "deviceFamily": [
+        "iphone",
+        "ipad"
+      ]
+    }
+  },
+  "deploy": {
+    "store": {
+      "web": "0",
+      "ios": "0"
+    }
+  },
+  "$schema": ".exact/checkout/scripts/app.schema.json",
+  "name": "Todo List",
+  "short_name": "Todo List",
+  "id": "com.binerlabs.todolist",
+  "start_url": "/",
+  "display": "standalone",
+  "app": {
+    "id": "com.binerlabs.todolist",
+    "name": "Todo List"
+  },
+  "rust": {
+    "data": {
+      "crate": "todolist-data",
+      "type": "todolist_data::TodoList"
+    }
+  }
+}
